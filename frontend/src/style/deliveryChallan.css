@@ -1,0 +1,126 @@
+.dc-wrapper {
+  background: #e5e7eb;
+  min-height: 100vh;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dc-btns {
+  width: 210mm;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.print-btn,
+.pdf-btn {
+  border: none;
+  padding: 8px 16px;
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: white;
+}
+
+.print-btn { background: #2563eb; }
+.pdf-btn { background: #059669; }
+
+.dc-container {
+  background: white;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 15mm;
+  border: 1px solid #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+}
+
+.dc-header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 2px solid #000;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.dc-header img { height: 50px; }
+
+.dc-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid #000;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.dc-company p { line-height: 1.4; }
+.gst { font-weight: bold; }
+
+.dc-invoice div {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #ccc;
+  padding: 3px 0;
+}
+
+.dc-customer {
+  border: 1px solid #000;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.dc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+}
+
+.dc-table th,
+.dc-table td {
+  border: 1px solid #000;
+  padding: 6px;
+  text-align: center;
+}
+
+.dc-table th { background: #f3f4f6; }
+
+.dc-table td:nth-child(2) { text-align: left; }
+
+.dc-terms {
+  border: 1px solid #000;
+  padding: 8px;
+  margin-bottom: 25px;
+  font-size: 12px;
+}
+
+.dc-sign {
+  text-align: right;
+}
+
+.sign-line {
+  border-top: 1px solid #000;
+  display: inline-block;
+  width: 200px;
+  padding-top: 5px;
+  margin-top: 40px;
+  text-align: center;
+}
+
+/* PRINT FIX */
+@media print {
+  .dc-btns {
+    display: none;
+  }
+
+  .dc-wrapper {
+    padding: 0;
+    background: white;
+  }
+
+  .dc-container {
+    border: none;
+  }
+}

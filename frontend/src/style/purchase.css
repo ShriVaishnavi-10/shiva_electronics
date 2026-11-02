@@ -1,0 +1,49 @@
+/* Common Card UI */
+.card-ui {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Vendor Card */
+.vendor-card {
+  background: linear-gradient(135deg, #f8fafc, #eef2ff);
+  border-left: 4px solid #4f46e5;
+}
+
+/* Product Card */
+.product-card {
+  background: #f9fafb;
+  border-left: 4px solid #22c55e;
+}
+
+/* Search Dropdown */
+.search-card {
+  position: absolute;
+  width: 100%;
+  z-index: 20;
+  max-height: 240px;
+  overflow-y: auto;
+  border-radius: 10px;
+}
+
+/* Search Item */
+.search-item {
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.search-item:hover {
+  background: #eef2ff;
+}
+
+/* Table */
+table thead {
+  background: #f1f5f9;
+}
+
+table td input {
+  text-align: center;
+}

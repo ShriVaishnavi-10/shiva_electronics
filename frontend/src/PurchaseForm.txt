@@ -1,0 +1,291 @@
+import React, { useState } from "react";
+import axios from "axios";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Input,
+  Label,
+  Table,
+  Offcanvas,
+  OffcanvasHeader,
+  OffcanvasBody,
+  Tooltip
+} from "reactstrap";
+import { FaPlus, FaSearch, FaTrash } from "react-icons/fa";
+import { apiUrl } from "../config/urls";
+const API = apiUrl("products");
+export default function PurchaseUI() {
+  const [vendorCanvas, setVendorCanvas] = useState(false);
+  const [productCanvas, setProductCanvas] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [products, setProducts] = useState([]);
+
+  const toggleVendor = () => setVendorCanvas(!vendorCanvas);
+  const toggleProduct = () => setProductCanvas(!productCanvas);
+    const [search, setSearch] = useState("");
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleSearch = async (value) => {
+    setSearch(value);
+
+    if (value.length < 2) {
+      setList([]);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await axios.get(`${API}/search?q=${value}`);
+      setList(res.data);
+    } catch (err) {
+      console.error("Search error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // When a product is selected from search, map existing product fields into a row
+  const onSelect = (item) => {
+    const newRow = {
+      name: item.product_name || item.name || "",
+      thickness: item.thickness || "",
+      qty: 1,
+      sqft: item.sqft != null ? Number(item.sqft) : 0,
+      price: item.price != null ? Number(item.price) : 0,
+      discount: 0
+    };
+    setProducts((prev) => [...prev, newRow]);
+  };
+
+  const addRow = () => {
+    setProducts([...products, { name: "", thickness: "", qty: 1, sqft: 0, price: 0, discount: 0 }]);
+  };
+
+  const updateRow = (i, key, value) => {
+    const clone = [...products];
+    clone[i][key] = value;
+    setProducts(clone);
+  };
+
+  const deleteRow = (i) => {
+    const clone = [...products];
+    clone.splice(i, 1);
+    setProducts(clone);
+  };
+
+  const rowTotal = (p) => {
+    const base = Number(p.sqft) * Number(p.price);
+    return (base - Number(p.discount || 0)).toFixed(2);
+  };
+
+  const grandTotal = products.reduce((a, b) => a + Number(rowTotal(b)), 0);
+
+  return (
+    <Container fluid className="p-3 bg-light min-vh-100">
+      <Row className="g-3">
+
+        {/* Vendor Section */}
+        <Col md="6">
+          <div className="bg-white p-3 rounded shadow-sm border-start border-4 border-primary">
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h6 className="mb-0 text-primary">Vendor Details</h6>
+              <div>
+                <Button id="searchTip" size="sm" outline color="primary" className="me-1">
+                  <FaSearch />
+                </Button>
+                <Tooltip isOpen={tooltipOpen} target="searchTip" toggle={() => setTooltipOpen(!tooltipOpen)}>
+                  Search nearby vendor / Add new
+                </Tooltip>
+                <Button size="sm" color="primary" onClick={toggleVendor}>
+                  <FaPlus />
+                </Button>
+              </div>
+            </div>
+            <Label className="small">Select Vendor</Label>
+            <Input placeholder="Search vendor" />
+          </div>
+        </Col>
+
+        {/* Other Details */}
+        <Col md="6">
+          <div className="bg-white p-3 rounded shadow-sm border-start border-4 border-success">
+            <h6 className="text-success">Other Details</h6>
+            <Row className="g-2">
+              <Col md="6">
+                <Label className="small">Supplier Invoice Date</Label>
+                <Input type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+              </Col>
+              <Col md="6">
+                <Label className="small">Payment By Date</Label>
+                <Input type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+              </Col>
+              <Col md="12">
+                <Label className="small">Reference</Label>
+                <Input />
+              </Col>
+              <Col md="12">
+                <Label className="small">Purchase No</Label>
+                <Input />
+              </Col>
+            </Row>
+          </div>
+        </Col>
+
+        {/* Products Section */}
+        <Col md="12">
+          <div className="bg-white p-3 rounded shadow-sm border-start border-4 border-warning">
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h6 className="text-warning mb-0">Products & Services</h6>
+              <Button size="sm" color="warning" onClick={toggleProduct}>
+                <FaPlus className="me-1" /> Add Product
+              </Button>
+            </div>
+
+          <div style={{ position: "relative" }}>
+      <Row className="g-2 mb-2">
+        <Col md="10">
+          <Input
+            placeholder="Search product"
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+            autoComplete="off"
+          />
+        </Col>
+      </Row>
+
+      {list.length > 0 && (
+        <Card
+          className="shadow"
+          style={{
+            position: "absolute",
+            width: "83%",
+            zIndex: 999,
+            maxHeight: "250px",
+            overflowY: "auto"
+          }}
+        >
+          <CardBody className="p-1">
+            {list.map((item) => (
+              <div
+                key={item.id}
+                className="p-2 border-bottom search-item"
+                onClick={() => {
+                  onSelect(item);
+                  setSearch(item.product_name);
+                  setList([]);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <b>{item.product_name}</b>
+                <div className="text-muted small">
+                  {item.category_name} → {item.subcategory_name || "-"}
+                </div>
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      )}
+
+      {loading && <small className="text-muted">Searching...</small>}
+    </div>
+
+            <Table bordered responsive size="sm" className="align-middle">
+              <thead className="table-light">
+                <tr>
+                  <th>Product</th>
+                  <th>Thickness</th>
+                  <th>Qty</th>
+                  <th>Sqft</th>
+                  <th>Price</th>
+                  <th>Discount</th>
+                  <th>Total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.length === 0 && (
+                  <tr>
+                    <td colSpan="8" className="text-center text-muted p-3">
+                      No products added
+                    </td>
+                  </tr>
+                )}
+                {products.map((p, i) => (
+                  <tr key={i}>
+                    <td><Input value={p.name} onChange={e => updateRow(i, 'name', e.target.value)} /></td>
+                    <td><Input value={p.thickness} onChange={e => updateRow(i, 'thickness', e.target.value)} /></td>
+                    <td><Input type="number" value={p.qty} onChange={e => updateRow(i, 'qty', e.target.value)} /></td>
+                    <td><Input type="number" value={p.sqft} onChange={e => updateRow(i, 'sqft', e.target.value)} /></td>
+                    <td><Input type="number" value={p.price} onChange={e => updateRow(i, 'price', e.target.value)} /></td>
+                    <td><Input type="number" value={p.discount} onChange={e => updateRow(i, 'discount', e.target.value)} /></td>
+                    <td className="fw-bold text-success">₹ {rowTotal(p)}</td>
+                    <td>
+                      <Button size="sm" color="danger" onClick={() => deleteRow(i)}>
+                        <FaTrash />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+
+            <div className="text-end fw-bold fs-5 text-success">Grand Total: ₹ {grandTotal.toFixed(2)}</div>
+          </div>
+        </Col>
+
+        {/* Notes & Payment */}
+        <Col md="6">
+          <div className="bg-white p-3 rounded shadow-sm border-start border-4 border-info">
+            <h6 className="text-info">Notes / Terms</h6>
+            <Input type="textarea" rows="4" />
+          </div>
+        </Col>
+
+        <Col md="6">
+          <div className="bg-white p-3 rounded shadow-sm border-start border-4 border-danger">
+            <h6 className="text-danger">Payment Details</h6>
+            <Input placeholder="Amount" className="mb-2" />
+            <Input type="select">
+              <option>Cash</option>
+              <option>Card</option>
+              <option>UPI</option>
+              <option>Bank Transfer</option>
+            </Input>
+            <Button color="secondary" className="mt-2">Split Payment</Button>
+          </div>
+        </Col>
+
+        <Col md="12" className="text-end">
+          <Button color="secondary" className="me-2">Save as Draft</Button>
+          <Button color="success">Save Purchase</Button>
+        </Col>
+      </Row>
+
+      {/* Vendor Offcanvas */}
+      <Offcanvas isOpen={vendorCanvas} toggle={toggleVendor} direction="start">
+        <OffcanvasHeader toggle={toggleVendor}>Add New Vendor</OffcanvasHeader>
+        <OffcanvasBody>
+          <Input placeholder="Vendor Name" className="mb-2" />
+          <Input placeholder="Phone" className="mb-2" />
+          <Input placeholder="Email" className="mb-2" />
+          <Input placeholder="Address" className="mb-2" />
+          <Button color="primary" block>Save Vendor</Button>
+        </OffcanvasBody>
+      </Offcanvas>
+
+      {/* Product Offcanvas */}
+      <Offcanvas isOpen={productCanvas} toggle={toggleProduct} direction="start">
+        <OffcanvasHeader toggle={toggleProduct}>Add New Product</OffcanvasHeader>
+        <OffcanvasBody>
+          <Input placeholder="Product Name" className="mb-2" />
+          <Input placeholder="Thickness" className="mb-2" />
+          <Input placeholder="Unit Price" className="mb-2" />
+          <Button color="primary" block>Save Product</Button>
+        </OffcanvasBody>
+      </Offcanvas>
+    </Container>
+  );
+}

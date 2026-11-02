@@ -1,0 +1,8 @@
+
+
+[2026-05-05T10:38:47.854Z] UPDATE_RECEIPT_ERROR: total_amount is not defined
+Stack: ReferenceError: total_amount is not defined
+    at exports.updateReceipt (C:\Users\RAJU\OneDrive\Desktop\CTW PROJECTS\sri_ram2\backend\controllers\receiptController.js:455:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+SQL: UPDATE services SET id=id, `delivery_date`=?, `notes`=?, `status`=?, `vehicle_no`=?
+VALUES: ["2026-05-06","repair","In Progress","TN 30 AB 1234"]

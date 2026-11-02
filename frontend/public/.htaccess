@@ -1,0 +1,17 @@
+# Apache — SPA fallback for React Router (copied to `dist/` on `vite build`)
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Serve existing files and directories as-is
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # All other routes → index.html
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Optional: don’t list directory contents
+Options -Indexes

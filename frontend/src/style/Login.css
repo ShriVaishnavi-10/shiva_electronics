@@ -1,0 +1,59 @@
+.login-container {
+  background: linear-gradient(135deg, #e0f2f7, #f0f8ff); /* Light blue gradient background */
+}
+
+.login-card {
+  border: none;
+  border-radius: 15px; /* Softer rounded corners */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); /* More pronounced shadow */
+  padding: 30px;
+}
+
+.logo-box {
+  background: linear-gradient(45deg, #16a34a, #34d399); /* Green gradient for logo box */
+  border-radius: 50%; /* Make it circular */
+  width: 100px; /* Fixed width */
+  height: 100px; /* Fixed height */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 25px auto; /* Center and add bottom margin */
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); /* Shadow for logo box */
+}
+
+.app-title {
+  color: white;
+  font-size: 1.5rem; /* Adjust font size */
+  font-weight: 700;
+  margin: 0;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+}
+
+.form-group .form-control {
+  border-radius: 8px; /* Rounded input fields */
+  border-color: #ced4da; /* Default border color */
+}
+
+.form-group .form-control:focus {
+  border-color: #16a34a; /* Green border on focus */
+  box-shadow: 0 0 0 0.25rem rgba(22, 163, 74, 0.25); /* Green shadow on focus */
+}
+
+.btn-primary {
+  background: linear-gradient(90deg, #16a34a, #34d399); /* Green gradient button */
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 8px 15px rgba(22, 163, 74, 0.3);
+  transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  background: #a7f3d0; /* Lighter green when disabled */
+  cursor: not-allowed;
+}

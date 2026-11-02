@@ -1,0 +1,187 @@
+/* 🌿 Page Background */
+.module-page {
+  min-height: 100vh;
+  background: #f0fdf4; /* light green */
+  padding: 30px 20px;
+}
+
+/* 🌿 Welcome Section */
+.welcome-section {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: #84fab0;
+  padding: 22px 26px;
+  border-radius: 18px;
+  margin-bottom: 30px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+ 
+}
+
+/* Wrapper circle */
+.welcome-icon-wrap {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #ecfdf5; /* light green */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Image */
+.welcome-icon {
+  width: 28px; /* small icon */
+  height: auto;
+  z-index: 2;
+}
+
+/* 🔔 Circle Pulse Animation */
+.welcome-icon-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.4); /* green glow */
+  animation: welcomePulse 2s infinite ease-out;
+}
+
+@keyframes welcomePulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+
+.welcome-text h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #0a2569;
+}
+
+.welcome-text p {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #374151;
+  max-width: 600px;
+}
+
+/* 🌿 Cards Layout */
+.feature-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 22px;
+}
+
+/* Card */
+.feature-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
+  border-radius: 18px;
+  color: #fff;
+  transition: all 0.35s ease;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+}
+
+.feature-card:hover {
+  transform: translateY(-6px);
+}
+
+/* Icon Circle */
+.icon-circle {
+  width: 68px;
+  height: 68px;
+  background: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.icon-circle img {
+  width: 36px;
+  height: 36px;
+  z-index: 2;
+}
+
+/* 🔔 Blink Animation */
+.blink::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  animation: pulse 1.8s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Text */
+.card-text h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.card-text p {
+  margin-top: 5px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* Gradients */
+.card-blue {
+  background: linear-gradient(135deg, #2563eb, #38bdf8);
+}
+.card-orange {
+  background: linear-gradient(135deg, #f97316, #fb923c);
+}
+.card-green {
+  background: linear-gradient(135deg, #16a34a, #4ade80);
+}
+.card-darkblue {
+  background: linear-gradient(135deg, #020617, #1e3a8a);
+}
+.card-purple {
+  background: linear-gradient(135deg, #7c3aed, #c084fc);
+}
+.card-gray {
+  background: linear-gradient(135deg, #374151, #9ca3af);
+}
+
+/* 📱 Mobile */
+@media (max-width: 576px) {
+  .welcome-section {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .feature-card {
+    flex-direction: column;
+    text-align: center;
+  }
+}

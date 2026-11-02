@@ -1,0 +1,123 @@
+
+      
+        .typing-text {
+          overflow: hidden;
+          white-space: nowrap;
+          border-right: 3px solid #16a34a;
+          width: 0;
+          animation: typing 3s steps(30, end) forwards, blink 0.7s infinite;
+        }
+
+        @keyframes typing {
+          to { width: 100%; }
+        }
+
+        @keyframes blink {
+          50% { border-color: transparent; }
+        }
+
+        /* Input focus animation */
+        .form-control:focus {
+          border-color: #16a34a;
+          box-shadow: 0 0 0 0.2rem rgba(22,163,74,0.25);
+        }
+
+        /* Card hover */
+        .login-card {
+          transition: all 0.35s ease;
+        }
+
+        .login-card:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 25px 60px rgba(22,163,74,0.25);
+        }
+
+        /* Logo highlight */
+        .logo-box {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 14px 24px;
+          border-radius: 16px;
+          background: rgba(22,163,74,0.08);
+          box-shadow: 0 10px 30px rgba(22,163,74,0.25);
+        }
+    
+   .main-content {
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
+/* Common Card Style */
+.dashboard-card {
+  border: none;
+  border-radius: 16px;
+  color: #fff;
+  padding: 10px;
+  transition: transform 0.3s ease;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-5px);
+}
+
+/* Card Colors */
+.dashboard-card.billing {
+  background: linear-gradient(135deg, #2563eb, #38bdf8);
+}
+
+.dashboard-card.pos {
+  background: linear-gradient(135deg, #f97316, #fb923c);
+}
+
+.dashboard-card.inventory {
+  background: linear-gradient(135deg, #22c55e, #86efac);
+}
+
+.app-navbar {
+  background: #ffffff;
+  padding: 10px 20px;
+}
+
+.sidebar-btn {
+  font-size: 20px;
+  color: #0f172a;
+}
+
+.navbar-search input {
+  border-radius: 20px;
+}
+
+.nav-icon {
+  font-size: 18px;
+  color: #334155;
+}
+
+.nav-icon:hover {
+  color: #16a34a;
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.pagination {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+}
+
+.pagination li {
+  border: 1px solid #ddd;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: white;
+}
+
+.pagination .active {
+  background: #0d6efd;
+  color: white;
+  border-color: #0d6efd;
+}

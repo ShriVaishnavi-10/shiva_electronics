@@ -1,0 +1,262 @@
+@page{
+size:A4;
+margin:0;
+}
+#mainContainer{
+display:flex;
+flex-direction:column;
+align-items:center;
+background:#f4f4f4;
+padding:20px;
+font-family:"Times New Roman", serif;
+}
+
+/* Buttons */
+
+#buttonContainer{
+margin-bottom:20px;
+}
+
+#printBtn,#downloadBtn{
+padding:8px 16px;
+margin-right:10px;
+border:none;
+background:#1f4e8c;
+color:white;
+cursor:pointer;
+font-size:13px;
+}
+
+/* A4 Sheet */
+
+#invoice{
+width:210mm;
+min-height:277mm;
+background:white;
+padding:10mm;
+
+box-sizing:border-box;
+font-size:13px;
+}
+
+/* Header — company left, logo right (same row; never stack under mobile) */
+
+#header{
+display:flex;
+flex-direction:row;
+flex-wrap:nowrap;
+align-items:flex-start;
+justify-content:space-between;
+gap:12px;
+
+background:#eaeaea;
+border:1px solid black;
+border-bottom:none;
+padding:10px;
+}
+
+#companyDetails{
+flex:1 1 auto;
+min-width:0;
+max-width:calc(100% - 152px);
+text-align:left;
+}
+
+#companyDetails h2{
+font-size:18px;
+margin:0 0 5px 0;
+font-weight:bold;
+color:black;
+}
+
+#companyDetails p{
+margin:2px 0;
+padding:0;
+font-size:13px;
+}
+
+#logoSection{
+flex:0 0 auto;
+align-self:flex-start;
+text-align:right;
+}
+
+#logo{
+  display: block;
+  width: 160px;
+  max-width: 160px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+/* Invoice info */
+
+#invoiceTopTable{
+width:100%;
+border-collapse:collapse;
+border:1px solid black;
+}
+
+#invoiceTopTable td{
+border:1px solid black;
+padding:8px;
+font-size:13px;
+vertical-align:top;
+}
+
+/* Items Table */
+
+#itemTable{
+width:100%;
+border-collapse:collapse;
+border:1px solid black;
+border-top:none;
+}
+
+#itemTable th{
+background:#1f4e8c;
+color:white;
+padding:6px;
+border:1px solid black;
+font-size:13px;
+}
+
+#itemTable td{
+border:1px solid black;
+padding:6px;
+font-size:13px;
+text-align:center;
+}
+
+#itemTable td:nth-child(2){
+text-align:left;
+}
+
+/* Amount Section */
+
+#amountSection{
+display:flex;
+border:1px solid black;
+border-top:none;
+}
+
+#amountWords{
+width:60%;
+padding:10px;
+font-size:13px;
+}
+
+#bankDetails{
+width:40%;
+border-left:1px solid black;
+padding:10px;
+font-size:13px;
+}
+
+/* Footer */
+
+#footerSection{
+display:flex;
+flex-direction:column;
+align-items:stretch;
+border:1px solid black;
+border-top:none;
+}
+
+#footerSection #terms{
+width:100%;
+padding:10px;
+font-size:13px;
+box-sizing:border-box;
+}
+
+#footerSection .terms-heading{
+margin:0 0 8px 0;
+padding:0;
+}
+
+#footerSection .terms-line{
+margin:0 0 6px 0;
+padding:0;
+line-height:1.45;
+}
+
+#footerSection .terms-line:last-child{
+margin-bottom:0;
+}
+
+#sign{
+width:40%;
+padding:10px;
+text-align:right;
+font-size:13px;
+}
+#totalAmount {
+  margin-left:70px;
+  gap: 10px;
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+
+
+/* ✅ PRINT FIX */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #invoice, #invoice *, .job-card-print-container, .job-card-print-container * {
+    visibility: visible;
+  }
+
+  #invoice {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 210mm;
+    height: 297mm;
+  }
+
+  #buttonContainer {
+    display: none;
+  }
+
+  /* Keep header side-by-side on print (match screen layout) */
+  #header {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+
+
+/* Mobile */
+
+@media(max-width:768px){
+
+#invoice{
+width:100%;
+padding:10px;
+}
+
+/* Do not stack #header — logo must stay beside company block on narrow viewports */
+
+#amountSection,
+#footerSection{
+flex-direction:column;
+}
+
+#bankDetails,
+#amountWords,
+#terms,
+#sign{
+width:100%;
+border:none;
+margin-bottom:10px;
+}
+
+}

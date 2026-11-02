@@ -1,0 +1,178 @@
+:root {
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #08090D;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* ============================================================== */
+  /* SHIVA ELECTRONICS GOLD & OBSIDIAN THEME TOKENS                  */
+  /* ============================================================== */
+  --theme-gold: #FFD700;
+  --theme-gold-dark: #D49A00;
+  --theme-gold-light: #FFF275;
+  --theme-dark-bg: #08090D;
+  --theme-dark-surface: #0E121E;
+  --theme-gold-border: rgba(255, 215, 0, 0.35);
+
+  --sidebar-active-bg: #FFD700;
+  --sidebar-bg: #0E121E;
+  --input-border: #e2e8f0;
+  --input-hover-border: #D49A00;
+  --input-bg: #ffffff;
+  --input-color: #0f172a;
+}
+
+a {
+  font-weight: 500;
+  color: #D49A00;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #FFD700;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  background-color: #08090D;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #FFD700;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #f4f6fb;
+  }
+  a:hover {
+    color: #FFD700;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+
+/* ============================================================== */
+/* SHIVA ELECTRONICS UI THEME OVERRIDES FOR ADMIN PANEL           */
+/* ============================================================== */
+
+/* Primary Button Gold Styling for Admin UI */
+.layout .btn-primary {
+  background: linear-gradient(135deg, #FFD700 0%, #F5B000 50%, #D49A00 100%) !important;
+  color: #08090D !important;
+  font-weight: 700 !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(255, 215, 0, 0.35) !important;
+  transition: all 0.25s ease !important;
+}
+
+.layout .btn-primary:hover,
+.layout .btn-primary:focus {
+  background: linear-gradient(135deg, #FFF275 0%, #FFD700 45%, #E5A500 100%) !important;
+  color: #08090D !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 6px 18px rgba(255, 215, 0, 0.5) !important;
+}
+
+/* Form Controls Focus with Gold Accent */
+.layout .form-control:focus,
+.layout .form-select:focus {
+  border-color: #FFD700 !important;
+  box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.22) !important;
+}
+
+/* Pagination Active State with Gold Accent */
+.layout .pagination .active .page-link,
+.layout .pagination .active {
+  background: linear-gradient(135deg, #FFD700, #D49A00) !important;
+  color: #08090D !important;
+  border-color: #FFD700 !important;
+  font-weight: 700;
+}
+
+/* Custom Table Row Highlight with Subtle Gold Sheen */
+.layout .table tbody tr:hover {
+  background-color: rgba(255, 215, 0, 0.04) !important;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+@media print {
+  .Toastify,
+  .Toastify__toast-container,
+  .Toastify__toast,
+  .Toastify__toast-body,
+  .toast,
+  div[role="alert"],
+  .no-print {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+  }
+  .print-p-0 {
+    padding: 0 !important;
+    background: white !important;
+  }
+  .print-shadow-none {
+    box-shadow: none !important;
+  }
+}
+
+.h-92vh {
+    height: 92vh !important;
+}
+
+/* ── POS Number Input: hide spinner arrows ───────────────────────── */
+/* Chrome, Safari, Edge */
+input[type="number"].pos-number-input::-webkit-inner-spin-button,
+input[type="number"].pos-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+/* Firefox */
+input[type="number"].pos-number-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

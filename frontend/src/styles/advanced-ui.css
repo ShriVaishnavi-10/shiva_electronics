@@ -1,0 +1,982 @@
+/* =============================================================================
+   Advanced Admin Panel UI — Premium Input Fields, Dropdowns, Tables, Cards
+   Pure CSS layer — no business logic changes.
+   ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+   1. ADVANCED INPUT FIELDS
+   ----------------------------------------------------------------------------- */
+
+/* Base input styling */
+.layout .form-control,
+.layout .form-select,
+.layout input.form-control {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.875rem;
+  font-weight: 450;
+  letter-spacing: 0.01em;
+  border: 1.5px solid var(--input-border);
+  background-color: var(--input-bg);
+  color: var(--input-color);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.layout .form-control::placeholder,
+.layout .form-select::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.layout .form-control:hover,
+.layout .form-select:hover {
+  border-color: var(--input-hover-border, color-mix(in srgb, var(--sidebar-active-bg) 40%, var(--input-border)));
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.layout .form-control:focus,
+.layout .form-select:focus {
+  border-color: var(--sidebar-active-bg);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sidebar-active-bg) 12%, transparent),
+              0 2px 8px color-mix(in srgb, var(--sidebar-active-bg) 8%, transparent);
+  outline: none;
+}
+
+.layout .form-control:disabled,
+.layout .form-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background-color: var(--input-disabled-bg, color-mix(in srgb, var(--input-bg) 90%, var(--text-muted)));
+}
+
+/* Form labels */
+.layout .form-label,
+.layout label.fw-bold,
+.layout label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: inline-block;
+}
+
+/* Form groups spacing */
+.layout .form-group,
+.layout .mb-3 > .form-control,
+.layout .mb-3 > .form-select {
+  margin-bottom: 0;
+}
+
+/* Input group addon */
+.layout .input-group-text {
+  border-radius: 10px 0 0 10px;
+  border: 1.5px solid var(--input-border);
+  border-right: none;
+  font-size: 0.875rem;
+  padding: 10px 12px;
+  background-color: var(--table-header-bg);
+}
+
+.layout .input-group .form-control {
+  border-radius: 0 10px 10px 0;
+}
+
+/* Textarea */
+.layout textarea.form-control {
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* Select dropdown arrow */
+.layout .form-select {
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  background-size: 14px 10px;
+}
+
+/* Small inputs */
+.layout .form-control-sm,
+.layout .form-select[bssize="sm"],
+.layout input.form-control.form-control-sm {
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  border-radius: 8px;
+}
+
+/* -----------------------------------------------------------------------------
+   2. ADVANCED SEARCHABLE DROPDOWN (used in productForm etc.)
+   ----------------------------------------------------------------------------- */
+
+.layout .position-relative > .card.shadow-sm.position-absolute {
+  border-radius: 12px;
+  border: 1.5px solid var(--dropdown-border);
+  box-shadow: 0 12px 36px color-mix(in srgb, var(--shadow-color) 120%, transparent),
+              0 4px 12px color-mix(in srgb, var(--shadow-color) 80%, transparent);
+  overflow: hidden;
+  animation: advDropdownSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100 !important;
+  margin-top: 4px !important;
+}
+
+@keyframes advDropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.layout .position-relative > .card.shadow-sm.position-absolute .card-body {
+  padding: 8px;
+}
+
+/* Dropdown items */
+.layout .position-relative > .card.shadow-sm.position-absolute .p-2.border.rounded {
+  border-radius: 8px !important;
+  border: 1px solid transparent !important;
+  padding: 10px 12px !important;
+  margin-bottom: 4px !important;
+  font-size: 0.875rem;
+  font-weight: 450;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background-color: transparent;
+  color: var(--text-color);
+}
+
+.layout .position-relative > .card.shadow-sm.position-absolute .p-2.border.rounded:hover {
+  background-color: var(--dropdown-link-hover-bg);
+  border-color: color-mix(in srgb, var(--sidebar-active-bg) 20%, transparent) !important;
+  color: var(--sidebar-active-bg);
+  transform: translateX(2px);
+}
+
+/* Dropdown "Add" button */
+.layout .position-relative > .card.shadow-sm.position-absolute .btn-outline-secondary,
+.layout .position-relative > .card.shadow-sm.position-absolute .btn[class*="outline"] {
+  border-radius: 8px;
+  border: 1.5px dashed var(--border-color);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 8px 12px;
+  margin-top: 4px;
+  transition: all 0.2s ease;
+  color: var(--sidebar-active-bg);
+  background: transparent;
+}
+
+.layout .position-relative > .card.shadow-sm.position-absolute .btn-outline-secondary:hover,
+.layout .position-relative > .card.shadow-sm.position-absolute .btn[class*="outline"]:hover {
+  background-color: color-mix(in srgb, var(--sidebar-active-bg) 8%, transparent);
+  border-color: var(--sidebar-active-bg);
+  border-style: solid;
+}
+
+/* Custom scrollbar in dropdown lists */
+.layout .position-relative > .card.shadow-sm.position-absolute .card-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sidebar-scrollbar-thumb) transparent;
+}
+
+.layout .position-relative > .card.shadow-sm.position-absolute .card-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.layout .position-relative > .card.shadow-sm.position-absolute .card-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.layout .position-relative > .card.shadow-sm.position-absolute .card-body::-webkit-scrollbar-thumb {
+  background: var(--sidebar-scrollbar-thumb);
+  border-radius: 10px;
+}
+
+/* -----------------------------------------------------------------------------
+   3. ADVANCED SELECT DROPDOWN (native)
+   ----------------------------------------------------------------------------- */
+
+[data-theme] .dropdown-menu {
+  border-radius: 12px;
+  border: 1.5px solid var(--dropdown-border);
+  padding: 6px;
+  box-shadow: 0 12px 36px var(--shadow-color),
+              0 4px 12px var(--shadow-color);
+  animation: advDropdownSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme] .dropdown-item {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  font-weight: 450;
+  transition: all 0.15s ease;
+}
+
+[data-theme] .dropdown-item:hover,
+[data-theme] .dropdown-item:focus {
+  background-color: var(--dropdown-link-hover-bg);
+  transform: translateX(2px);
+}
+
+[data-theme] .dropdown-item.active,
+[data-theme] .dropdown-item:active {
+  background-color: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+}
+
+/* -----------------------------------------------------------------------------
+   4. ADVANCED CARDS
+   ----------------------------------------------------------------------------- */
+
+.theme-panel-card.card,
+.layout .card {
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px var(--shadow-color),
+              0 1px 2px color-mix(in srgb, var(--shadow-color) 60%, transparent);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.layout .card:hover {
+  box-shadow: 0 4px 12px var(--shadow-color),
+              0 2px 6px color-mix(in srgb, var(--shadow-color) 80%, transparent);
+}
+
+.layout .card-header {
+  background: var(--table-header-bg);
+  border-bottom: 1px solid var(--border-color);
+  padding: 14px 18px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.layout .card-body {
+  padding: 18px;
+}
+
+.layout .card-title {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 16px;
+}
+
+/* -----------------------------------------------------------------------------
+   5. ADVANCED TABLES
+   ----------------------------------------------------------------------------- */
+
+.theme-panel-table,
+.layout .table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+
+.theme-panel-table thead th,
+.layout .table thead th {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  white-space: nowrap;
+  border-bottom: 2px solid var(--table-border-color) !important;
+}
+
+.layout .table thead.table-dark th {
+  background: var(--sidebar-active-bg) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.layout .table thead.table-dark th:first-child {
+  border-radius: 10px 0 0 0;
+}
+
+.layout .table thead.table-dark th:last-child {
+  border-radius: 0 10px 0 0;
+}
+
+.theme-panel-table td,
+.layout .table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+  border-color: var(--table-border-color);
+}
+
+.layout .table-hover tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.layout .table-hover tbody tr:hover {
+  background-color: var(--table-row-hover) !important;
+}
+
+/* Striped alternative */
+.layout .table-striped tbody tr:nth-of-type(odd) {
+  background-color: var(--table-striped-bg);
+}
+
+/* Table wrapper with rounded corners and smooth horizontal scrolling */
+.layout .table-responsive {
+  border-radius: 12px;
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch !important;
+  border: 1px solid var(--table-border-color);
+  max-width: 100%;
+}
+
+.layout .table-responsive > .table {
+  margin-bottom: 0;
+}
+
+/* Empty state in table */
+.layout .table td[colspan] {
+  padding: 32px 16px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* -----------------------------------------------------------------------------
+   6. ADVANCED BUTTONS
+   ----------------------------------------------------------------------------- */
+
+.layout .btn {
+  border-radius: 10px;
+  font-weight: 550;
+  font-size: 0.875rem;
+  letter-spacing: 0.01em;
+  padding: 8px 18px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.layout .btn:active {
+  transform: scale(0.97);
+}
+
+.layout .btn-sm {
+  padding: 5px 12px;
+  font-size: 0.8125rem;
+  border-radius: 8px;
+}
+
+/* Primary button gradient */
+.layout .btn-primary {
+  background: linear-gradient(135deg, var(--sidebar-active-bg), color-mix(in srgb, var(--sidebar-active-bg) 80%, #D49A00));
+  border: none;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--sidebar-active-bg) 30%, transparent);
+}
+
+.layout .btn-primary:hover {
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--sidebar-active-bg) 40%, transparent);
+  transform: translateY(-1px);
+}
+
+/* Success button */
+.layout .btn-success {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  border: none;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);
+}
+
+.layout .btn-success:hover {
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Danger button */
+.layout .btn-danger {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  border: none;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+}
+
+.layout .btn-danger:hover {
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Warning button */
+.layout .btn-warning {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  border: none;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);
+}
+
+.layout .btn-warning:hover {
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
+  transform: translateY(-1px);
+  color: #fff;
+}
+
+/* Info button */
+.layout .btn-info {
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
+  border: none;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.layout .btn-info:hover {
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+  transform: translateY(-1px);
+  color: #fff;
+}
+
+/* Outline buttons */
+.layout .btn-outline-primary {
+  border: 1.5px solid var(--sidebar-active-bg);
+  color: var(--sidebar-active-bg);
+  background: transparent;
+}
+
+.layout .btn-outline-primary:hover {
+  background: color-mix(in srgb, var(--sidebar-active-bg) 10%, transparent);
+  color: var(--sidebar-active-bg);
+  border-color: var(--sidebar-active-bg);
+  transform: translateY(-1px);
+}
+
+.layout .btn-outline-info {
+  border: 1.5px solid #0ea5e9;
+  color: #0ea5e9;
+}
+
+.layout .btn-outline-info:hover {
+  background: rgba(14, 165, 233, 0.1);
+  color: #0ea5e9;
+  border-color: #0ea5e9;
+  transform: translateY(-1px);
+}
+
+.layout .btn-outline-warning {
+  border: 1.5px solid #f59e0b;
+  color: #f59e0b;
+}
+
+.layout .btn-outline-warning:hover {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border-color: #f59e0b;
+  transform: translateY(-1px);
+}
+
+.layout .btn-outline-danger {
+  border: 1.5px solid #ef4444;
+  color: #ef4444;
+}
+
+.layout .btn-outline-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: #ef4444;
+  transform: translateY(-1px);
+}
+
+.layout .btn-outline-success {
+  border: 1.5px solid #22c55e;
+  color: #22c55e;
+}
+
+.layout .btn-outline-success:hover {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  border-color: #22c55e;
+  transform: translateY(-1px);
+}
+
+/* -----------------------------------------------------------------------------
+   7. ADVANCED MODALS
+   ----------------------------------------------------------------------------- */
+
+[data-theme] .modal-content {
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15),
+              0 12px 24px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+[data-theme] .modal-header {
+  padding: 18px 24px;
+  font-weight: 700;
+  background: var(--table-header-bg);
+  border-bottom: 1px solid var(--modal-header-border);
+}
+
+[data-theme] .modal-header .modal-title {
+  font-weight: 700;
+  font-size: 1.0625rem;
+  letter-spacing: -0.01em;
+}
+
+[data-theme] .modal-body {
+  padding: 24px;
+}
+
+[data-theme] .modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--modal-footer-border);
+  gap: 8px;
+}
+
+/* Modal backdrop blur */
+.modal-backdrop.show {
+  backdrop-filter: blur(4px);
+}
+
+/* Modal animation */
+.modal.show .modal-dialog {
+  animation: advModalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes advModalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   8. ADVANCED PAGINATION
+   ----------------------------------------------------------------------------- */
+
+[data-theme] .pagination {
+  gap: 4px;
+}
+
+[data-theme] .pagination .page-link,
+[data-theme] ul.pagination li {
+  border-radius: 8px !important;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  padding: 6px 12px;
+  border: 1.5px solid var(--pagination-border);
+  transition: all 0.2s ease;
+  min-width: 36px;
+  text-align: center;
+}
+
+[data-theme] .pagination .page-link:hover,
+[data-theme] ul.pagination li:hover {
+  background-color: var(--dropdown-link-hover-bg);
+  border-color: var(--sidebar-active-bg);
+  color: var(--sidebar-active-bg);
+  transform: translateY(-1px);
+}
+
+[data-theme] .pagination .page-item.active .page-link,
+[data-theme] ul.pagination li.active {
+  background: linear-gradient(135deg, var(--pagination-active-bg), color-mix(in srgb, var(--pagination-active-bg) 80%, #D49A00));
+  border-color: transparent;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--pagination-active-bg) 35%, transparent);
+}
+
+[data-theme] .pagination .page-item.disabled .page-link {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* react-paginate specific */
+.layout .pagination .page-item .page-link {
+  border-radius: 8px !important;
+}
+
+/* Previous/Next buttons */
+[data-theme] .pagination .page-item:first-child .page-link,
+[data-theme] .pagination .page-item:last-child .page-link {
+  font-weight: 600;
+}
+
+/* -----------------------------------------------------------------------------
+   9. ADVANCED BADGES
+   ----------------------------------------------------------------------------- */
+
+.layout .badge {
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  padding: 5px 10px;
+}
+
+.layout .badge.bg-success,
+.layout .badge.badge-success {
+  background: linear-gradient(135deg, #16a34a, #22c55e) !important;
+}
+
+.layout .badge.bg-danger,
+.layout .badge.badge-danger {
+  background: linear-gradient(135deg, #dc2626, #ef4444) !important;
+}
+
+.layout .badge.bg-warning,
+.layout .badge.badge-warning {
+  background: linear-gradient(135deg, #d97706, #f59e0b) !important;
+}
+
+.layout .badge.bg-info,
+.layout .badge.badge-info {
+  background: linear-gradient(135deg, #0284c7, #0ea5e9) !important;
+}
+
+/* -----------------------------------------------------------------------------
+   10. ADVANCED PAGE HEADERS
+   ----------------------------------------------------------------------------- */
+
+.layout h4.fw-bold,
+.layout h4 {
+  font-weight: 800;
+  font-size: 1.375rem;
+  letter-spacing: -0.02em;
+  color: var(--text-color);
+}
+
+.layout h5 {
+  font-weight: 700;
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
+}
+
+.layout h6 {
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+
+/* -----------------------------------------------------------------------------
+   11. ADVANCED SEARCH BAR
+   ----------------------------------------------------------------------------- */
+
+/* Search input with icon button */
+.layout .d-flex.gap-2 > .form-control + .btn {
+  border-radius: 10px;
+  min-width: 42px;
+}
+
+/* Standalone search input styling */
+.layout input[placeholder*="Search"],
+.layout input[placeholder*="search"] {
+  padding-left: 14px;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3ccircle cx='11' cy='11' r='8'/%3e%3cpath d='m21 21-4.3-4.3'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 36px;
+}
+
+/* -----------------------------------------------------------------------------
+   12. ADVANCED CONTAINER / CONTENT AREA
+   ----------------------------------------------------------------------------- */
+
+.layout .content-area {
+  padding: 20px;
+}
+
+/* Container fluid inside content area */
+.layout .container-fluid {
+  padding: 0;
+}
+
+/* Cards in content area - subtle entrance */
+.layout .content-area > .container-fluid > .card,
+.layout .content-area > .card {
+  animation: advCardFadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes advCardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Row gaps */
+.layout .row.g-3 {
+  --bs-gutter-y: 1rem;
+  --bs-gutter-x: 1rem;
+}
+
+/* -----------------------------------------------------------------------------
+   13. ADVANCED FORM LAYOUT IN MODALS
+   ----------------------------------------------------------------------------- */
+
+/* Customer / Product form in modals */
+.modal-body .row .col-md-6,
+.modal-body .row .col-md-12 {
+  margin-bottom: 4px;
+}
+
+.modal-body .form-group {
+  margin-bottom: 16px;
+}
+
+/* Action buttons in modals */
+.modal-body .text-end .btn {
+  min-width: 90px;
+}
+
+/* -----------------------------------------------------------------------------
+   14. ADVANCED TOOLTIP & TITLE ATTRIBUTES
+   ----------------------------------------------------------------------------- */
+
+.layout .btn[title] {
+  position: relative;
+}
+
+/* -----------------------------------------------------------------------------
+   15. SCROLLBAR STYLING
+   ----------------------------------------------------------------------------- */
+
+.layout .content-area {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sidebar-scrollbar-thumb) transparent;
+}
+
+.layout .content-area::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.layout .content-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.layout .content-area::-webkit-scrollbar-thumb {
+  background: var(--sidebar-scrollbar-thumb);
+  border-radius: 10px;
+}
+
+/* Table scrollbar */
+.layout .table-responsive {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sidebar-scrollbar-thumb) transparent;
+}
+
+.layout .table-responsive::-webkit-scrollbar {
+  height: 6px;
+}
+
+.layout .table-responsive::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.layout .table-responsive::-webkit-scrollbar-thumb {
+  background: var(--sidebar-scrollbar-thumb);
+  border-radius: 10px;
+}
+
+/* -----------------------------------------------------------------------------
+   16. ADVANCED PROGRESS BAR
+   ----------------------------------------------------------------------------- */
+
+.layout .progress {
+  border-radius: 8px;
+  height: 8px;
+  background-color: var(--table-header-bg);
+  overflow: hidden;
+}
+
+.layout .progress-bar {
+  background: linear-gradient(135deg, var(--sidebar-active-bg), color-mix(in srgb, var(--sidebar-active-bg) 70%, #D49A00));
+  border-radius: 8px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* -----------------------------------------------------------------------------
+   17. ACTION BUTTON GROUP (View/Edit/Delete icons)
+   ----------------------------------------------------------------------------- */
+
+.layout .d-flex.flex-wrap.gap-1 .btn-sm {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 8px;
+}
+
+/* -----------------------------------------------------------------------------
+   18. ADVANCED LIST GROUP
+   ----------------------------------------------------------------------------- */
+
+.layout .list-group-item {
+  border-radius: 0;
+  padding: 12px 16px;
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+  border-color: var(--border-color);
+}
+
+.layout .list-group-item:first-child {
+  border-radius: 10px 10px 0 0;
+}
+
+.layout .list-group-item:last-child {
+  border-radius: 0 0 10px 10px;
+}
+
+.layout .list-group-item:hover {
+  background-color: var(--dropdown-link-hover-bg);
+}
+
+/* -----------------------------------------------------------------------------
+   19. RESPONSIVE ENHANCEMENTS
+   ----------------------------------------------------------------------------- */
+
+@media (max-width: 768px) {
+  .layout .btn {
+    padding: 7px 14px;
+    font-size: 0.8125rem;
+  }
+
+  .layout .card-body {
+    padding: 14px;
+  }
+
+  .layout .table td,
+  .layout .table th {
+    padding: 10px 12px;
+    font-size: 0.8125rem;
+  }
+
+  .layout h4,
+  .layout h4.fw-bold {
+    font-size: 1.1875rem;
+  }
+
+  [data-theme] .modal-body {
+    padding: 16px;
+  }
+
+  [data-theme] .modal-header {
+    padding: 14px 16px;
+  }
+}
+
+@media (max-width: 576px) {
+  .layout .form-control,
+  .layout .form-select {
+    font-size: 0.8125rem;
+    padding: 8px 12px;
+  }
+
+  .layout .btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+
+  .layout .d-flex.flex-wrap.gap-1 .btn-sm {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   20. CURSOR HELPERS
+   ----------------------------------------------------------------------------- */
+
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
+/* -----------------------------------------------------------------------------
+   21. TEXT SELECTION HIGHLIGHT
+   ----------------------------------------------------------------------------- */
+
+.layout ::selection {
+  background: color-mix(in srgb, var(--sidebar-active-bg) 25%, transparent);
+  color: var(--text-color);
+}
+
+/* -----------------------------------------------------------------------------
+   22. ADVANCED ALERT / TOAST OVERRIDE
+   ----------------------------------------------------------------------------- */
+
+.Toastify__toast {
+  border-radius: 12px !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* -----------------------------------------------------------------------------
+   23. SMOOTH PAGE TRANSITIONS
+   ----------------------------------------------------------------------------- */
+
+.layout .content-area > * {
+  animation: advPageFadeIn 0.3s ease;
+}
+
+@keyframes advPageFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   24. DARK MODE SPECIFIC ENHANCEMENTS
+   ----------------------------------------------------------------------------- */
+
+[data-theme="dark"] .layout .card {
+  border-color: color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+[data-theme="dark"] .layout .table-responsive {
+  border-color: color-mix(in srgb, var(--table-border-color) 60%, transparent);
+}
+
+[data-theme="dark"] .layout .form-control,
+[data-theme="dark"] .layout .form-select {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] .layout .form-control:focus,
+[data-theme="dark"] .layout .form-select:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sidebar-active-bg) 20%, transparent),
+              0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .layout .btn-primary {
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+}
+
+[data-theme="dark"] [data-theme] .modal-content {
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4),
+              0 12px 24px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .layout .position-relative > .card.shadow-sm.position-absolute {
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45),
+              0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Dark mode toast */
+[data-theme="dark"] .Toastify__toast {
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35) !important;
+}
