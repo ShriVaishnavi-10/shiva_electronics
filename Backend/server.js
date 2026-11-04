@@ -115,6 +115,7 @@ app.use("/api", require("./routes/dailyCash.routes"));
 app.use("/api", require("./routes/dailySalesReport.routes"));
 app.use("/api", require("./routes/crmLead.routes"));
 app.use("/api/crm/followups", require("./routes/crmFollowup.routes"));
+app.use("/api/hrms", require("./routes/hrms.routes"));
 
 /* -------------------- ERROR HANDLER -------------------- */
 
@@ -137,6 +138,11 @@ const { updateSslToCtw } = require("./migrations/update_ssl_to_ctw");
 const { ensureSalesPersonTables } = require("./migrations/create_sales_person_tables");
 const { ensureCrmLeadsTables } = require("./migrations/create_crm_leads_tables");
 const { ensureCrmFollowupsTables } = require("./migrations/create_crm_followups_tables");
+const { ensureHrmsTables } = require("./migrations/create_hrms_tables");
+const { ensureProductQuantityColumn } = require("./migrations/add_product_quantity");
+const { ensurePoFieldsColumns } = require("./migrations/add_po_fields_to_transactions");
+const { ensureProductCombosAndFreebiesColumns } = require("./migrations/add_combos_freebies_to_products");
+const { ensureProductSerialNumbersTable } = require("./migrations/add_serial_numbers_to_products");
 
 const PORT = process.env.PORT || 5000;
 
@@ -151,4 +157,11 @@ app.listen(PORT, "0.0.0.0", () => {
   ensureSalesPersonTables().catch(() => {});
   ensureCrmLeadsTables().catch(() => {});
   ensureCrmFollowupsTables().catch(() => {});
+  ensureHrmsTables().catch((err) => {
+    console.error("HRMS initialization failed:", err.message || err);
+  });
+  ensureProductQuantityColumn().catch(() => {});
+  ensurePoFieldsColumns().catch(() => {});
+  ensureProductCombosAndFreebiesColumns().catch(() => {});
+  ensureProductSerialNumbersTable().catch(() => {});
 });

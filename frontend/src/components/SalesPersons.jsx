@@ -33,6 +33,7 @@ import {
   FaBullseye,
   FaInfoCircle,
   FaChartLine,
+  FaKey,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import api, { getActiveBranchId } from "../utils/api";
@@ -57,6 +58,8 @@ const SalesPersons = () => {
     name: "",
     phone: "",
     email: "",
+    login_username: "",
+    login_password: "",
     commission_type: "percentage",
     commission_rate: 0,
     target_amount: 0,
@@ -104,6 +107,8 @@ const SalesPersons = () => {
     setFormData({
       ...initialForm,
       branch_id: 2,
+      login_username: "",
+      login_password: "",
     });
     setModalOpen(true);
   };
@@ -115,6 +120,8 @@ const SalesPersons = () => {
       name: sp.name || "",
       phone: sp.phone || "",
       email: sp.email || "",
+      login_username: sp.login_username || sp.email || sp.employee_code || "",
+      login_password: "",
       commission_type: sp.commission_type || "percentage",
       commission_rate: sp.commission_rate != null ? Number(sp.commission_rate) : 0,
       target_amount: sp.target_amount != null ? Number(sp.target_amount) : 0,
@@ -419,12 +426,23 @@ const SalesPersons = () => {
                         )}
                       </td>
                       <td className="text-nowrap py-2 small text-muted">
-                        {sp.email ? (
-                          <span className="d-inline-flex align-items-center gap-1">
-                            <FaEnvelope size={10} className="text-secondary" /> {sp.email}
-                          </span>
-                        ) : (
-                          "—"
+                        <div>
+                          {sp.email ? (
+                            <span className="d-inline-flex align-items-center gap-1">
+                              <FaEnvelope size={10} className="text-secondary" /> {sp.email}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </div>
+                        {sp.login_username && (
+                          <div
+                            className="d-flex align-items-center gap-1 text-success mt-1"
+                            style={{ fontSize: "0.72rem" }}
+                            title="HRMS Login Username"
+                          >
+                            <FaKey size={8} /> <span className="fw-semibold">{sp.login_username}</span>
+                          </div>
                         )}
                       </td>
                       <td className="text-nowrap py-2">
@@ -624,6 +642,75 @@ const SalesPersons = () => {
                     <option value="Inactive">Inactive</option>
                   </Input>
                 </FormGroup>
+              </Col>
+
+              {/* Personal HRMS Portal Login Credentials */}
+              <Col xs={12} className="my-2">
+                <div
+                  className="p-3 rounded border"
+                  style={{
+                    backgroundColor: "#F0FDF4",
+                    borderColor: "#BBF7D0",
+                  }}
+                >
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <div className="d-flex align-items-center gap-2">
+                      <FaKey className="text-success" size={13} />
+                      <span className="fw-bold" style={{ fontSize: "0.82rem", color: "#166534", letterSpacing: "0.5px" }}>
+                        ✦ PERSONAL HRMS PORTAL LOGIN CREDENTIALS
+                      </span>
+                    </div>
+                    <span className="badge" style={{ backgroundColor: "#DCFCE7", color: "#15803D", fontSize: "0.72rem" }}>
+                      Role: Sales Person (Self-Service)
+                    </span>
+                  </div>
+
+                  <p className="text-muted small mb-2" style={{ fontSize: "0.76rem" }}>
+                    The seller will use these credentials on the main login screen to access their personal HRMS attendance, check-in, performance, and salary slips.
+                  </p>
+
+                  <Row className="g-2">
+                    <Col xs={12} md={6}>
+                      <FormGroup className="mb-0">
+                        <Label className="fw-semibold text-muted mb-1" style={{ fontSize: "0.74rem" }}>
+                          LOGIN USERNAME / EMAIL
+                        </Label>
+                        <Input
+                          bsSize="sm"
+                          type="text"
+                          placeholder={formData.email || formData.employee_code || "e.g. seller_ramesh or email"}
+                          value={formData.login_username}
+                          onChange={(e) =>
+                            setFormData({ ...formData, login_username: e.target.value })
+                          }
+                        />
+                        <small className="text-muted" style={{ fontSize: "0.7rem" }}>
+                          Leave blank to use email or employee code.
+                        </small>
+                      </FormGroup>
+                    </Col>
+
+                    <Col xs={12} md={6}>
+                      <FormGroup className="mb-0">
+                        <Label className="fw-semibold text-muted mb-1" style={{ fontSize: "0.74rem" }}>
+                          LOGIN PASSWORD {editingId ? "(Leave blank to keep unchanged)" : ""}
+                        </Label>
+                        <Input
+                          bsSize="sm"
+                          type="text"
+                          placeholder={editingId ? "•••••• (Unchanged)" : "Default: 123456"}
+                          value={formData.login_password}
+                          onChange={(e) =>
+                            setFormData({ ...formData, login_password: e.target.value })
+                          }
+                        />
+                        <small className="text-muted" style={{ fontSize: "0.7rem" }}>
+                          {editingId ? "Enter a new password to reset it." : "Default password is 123456 if left blank."}
+                        </small>
+                      </FormGroup>
+                    </Col>
+                  </Row>
+                </div>
               </Col>
 
               {/* Performance Commission Section - ONLY visible when editing an existing sales person based on performance */}

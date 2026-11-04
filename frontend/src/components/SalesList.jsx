@@ -47,6 +47,7 @@ export default function SalesList() {
   const navigate = useNavigate();
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isNonUser = storedUser.role_name?.toLowerCase().includes("non user") || storedUser.role_id === 6;
+  const isCashier = storedUser.role_name?.toLowerCase().includes("cashier") || storedUser.role_id === 8;
 
   const [data, setData] = useState([]);
   const [fromDate, setFromDate] = useState("");
@@ -485,92 +486,48 @@ export default function SalesList() {
     <>
       <Card className="shadow-sm border-0 rounded">
         <CardHeader className="bg-white border-bottom d-flex justify-content-between align-items-center py-3 flex-wrap gap-2">
-          <h5 className="mb-0 fw-semibold">{isNonUser ? "Non-GST Sale List" : "Sale List"}</h5>
           <div className="d-flex align-items-center gap-2">
-            <Button
-              color="warning"
-              size="sm"
-              className="fw-bold d-flex align-items-center gap-1 shadow-sm text-dark"
-              onClick={() =>
-                navigate(
-                  salesPersonId
-                    ? `/index/sales-person-report?sales_person_id=${salesPersonId}`
-                    : "/index/sales-person-report"
-                )
-              }
-              title="View Sales Person Report & Commission"
-            >
-              <FaChartLine /> Sales Person Report
-            </Button>
+            <h5 className="mb-0 fw-bold" style={{ color: "#0F766E" }}>
+              {isCashier ? "Invoices & Bills" : isNonUser ? "Non-GST Sale List" : "Sale List"}
+            </h5>
+            {isCashier && (
+              <span className="badge bg-light text-dark border px-2 py-1" style={{ fontSize: "11px" }}>
+                Billing Register
+              </span>
+            )}
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            {!isCashier && (
+              <Button
+                color="warning"
+                size="sm"
+                className="fw-bold d-flex align-items-center gap-1 shadow-sm text-dark"
+                onClick={() =>
+                  navigate(
+                    salesPersonId
+                      ? `/index/sales-person-report?sales_person_id=${salesPersonId}`
+                      : "/index/sales-person-report"
+                  )
+                }
+                title="View Sales Person Report & Commission"
+              >
+                <FaChartLine /> Sales Person Report
+              </Button>
+            )}
             <Button
               color="primary"
               size="sm"
+              className="fw-bold shadow-sm d-flex align-items-center gap-1"
               onClick={() => navigate("/index/salesForm")}
             >
-              <FaPlus className="me-1" /> {isNonUser ? "Add Non-GST Sale" : "Add Sale"}
+              <FaPlus className="me-1" /> {isCashier ? "New Bill (POS)" : isNonUser ? "Add Non-GST Sale" : "Add Sale"}
             </Button>
           </div>
         </CardHeader>
         <CardBody className="p-3">
           <Row className="mb-3 g-2 align-items-end">
-            <Col md={2} sm={6} xs={12}>
-              <Label className="small text-muted mb-1">Business Location</Label>
-              <Input
-                type="select"
-                value={locationId}
-                onChange={(e) => {
-                  setLocationId(e.target.value);
-                  setPage(1);
-                }}
-                bsSize="sm"
-              >
-                <option value="">All Locations</option>
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {getLocationDisplayName(loc)}
-                  </option>
-                ))}
-              </Input>
-            </Col>
-            <Col md={2} sm={6} xs={12}>
-              <Label className="small text-muted mb-1">Sales Executive</Label>
-              <Input
-                type="select"
-                value={salesPersonId}
-                onChange={(e) => {
-                  setSalesPersonId(e.target.value);
-                  setPage(1);
-                }}
-                bsSize="sm"
-              >
-                <option value="">All Sales Executives</option>
-                {salesPersons.map((sp) => (
-                  <option key={sp.id} value={sp.id}>
-                    {sp.name} ({sp.employee_code || `SP-${sp.id}`})
-                  </option>
-                ))}
-              </Input>
-            </Col>
-            <Col md={2} sm={6} xs={6}>
-              <Label className="small text-muted mb-1">From Date</Label>
-              <Input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                bsSize="sm"
-              />
-            </Col>
-            <Col md={2} sm={6} xs={6}>
-              <Label className="small text-muted mb-1">To Date</Label>
-              <Input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                bsSize="sm"
-              />
-            </Col>
-            <Col md={2} sm={6} xs={12}>
-              <Label className="small text-muted mb-1">
+            <Col md={isCashier ? 3 : 2} sm={6} xs={12}>
+              <Label className="small text-muted mb-1 text-truncate d-block">
                 Search Invoice / Customer
               </Label>
               <div className="position-relative">
@@ -599,7 +556,68 @@ export default function SalesList() {
                 )}
               </div>
             </Col>
-            <Col md={2} sm={6} xs={12}>
+            {!isCashier && (
+              <Col md={2} sm={6} xs={12}>
+                <Label className="small text-muted mb-1 text-truncate d-block">Business Location</Label>
+                <Input
+                  type="select"
+                  value={locationId}
+                  onChange={(e) => {
+                    setLocationId(e.target.value);
+                    setPage(1);
+                  }}
+                  bsSize="sm"
+                >
+                  <option value="">All Locations</option>
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {getLocationDisplayName(loc)}
+                    </option>
+                  ))}
+                </Input>
+              </Col>
+            )}
+            <Col md={isCashier ? 3 : 2} sm={6} xs={12}>
+              <Label className="small text-muted mb-1 text-truncate d-block">Sales Executive</Label>
+              <Input
+                type="select"
+                value={salesPersonId}
+                onChange={(e) => {
+                  setSalesPersonId(e.target.value);
+                  setPage(1);
+                }}
+                bsSize="sm"
+              >
+                <option value="">All Sales Executives</option>
+                {salesPersons.map((sp) => (
+                  <option key={sp.id} value={sp.id}>
+                    {sp.name} ({sp.employee_code || `SP-${sp.id}`})
+                  </option>
+                ))}
+              </Input>
+            </Col>
+            <Col md={isCashier ? 2 : 2} sm={6} xs={6}>
+              <Label className="small text-muted mb-1 text-truncate d-block">From Date</Label>
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                bsSize="sm"
+              />
+            </Col>
+            <Col md={isCashier ? 2 : 2} sm={6} xs={6}>
+              <Label className="small text-muted mb-1 text-truncate d-block">To Date</Label>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                bsSize="sm"
+              />
+            </Col>
+            <Col md={isCashier ? 2 : 2} sm={6} xs={12}>
+              <Label className="small text-muted mb-1 text-truncate d-none d-md-block invisible">
+                Actions
+              </Label>
               <div className="d-flex gap-1">
                 <Button
                   color="primary"
@@ -652,22 +670,22 @@ Showing {startEntry} to {endEntry} of {total} entries
             <Table bordered hover size="sm" className="align-middle mb-0 text-nowrap">
               <thead className="table-light">
                 <tr className="text-nowrap">
-                  <th>S.No</th>
-                  <th>Invoice No</th>
-                  <th>Date</th>
-                  <th>Customer Name</th>
-                  <th>Contact Number</th>
-                  <th>Product Name</th>
-                  <th>Sales Executive</th>
-                  <th>Payment Status</th>
-                  <th>Payment Method</th>
-                  <th>Total Amount</th>
-                  <th>Advance / Paid</th>
-                  <th>Remaining</th>
-                  <th>Total Qty</th>
-                  <th className="text-center text-nowrap">Tax Invoice</th>
-                  <th className="text-center text-nowrap">Thermal Print</th>
-                  <th className="text-center text-nowrap">Action</th>
+                  <th className="text-center" style={{ width: "50px" }}>S.No</th>
+                  <th style={{ minWidth: "120px" }}>Invoice No</th>
+                  <th style={{ minWidth: "100px" }}>Date</th>
+                  <th style={{ minWidth: "140px" }}>Customer Name</th>
+                  <th style={{ minWidth: "115px" }}>Contact Number</th>
+                  <th style={{ minWidth: "160px" }}>Product Name</th>
+                  <th style={{ minWidth: "140px" }}>Sales Executive</th>
+                  <th className="text-center" style={{ minWidth: "110px" }}>Payment Status</th>
+                  <th className="text-center" style={{ minWidth: "110px" }}>Payment Method</th>
+                  <th className="text-end" style={{ minWidth: "110px" }}>Total Amount</th>
+                  <th className="text-end" style={{ minWidth: "110px" }}>Advance / Paid</th>
+                  <th className="text-end" style={{ minWidth: "110px" }}>Remaining</th>
+                  <th className="text-center" style={{ minWidth: "80px" }}>Total Qty</th>
+                  <th className="text-center text-nowrap" style={{ width: "70px" }}>Tax Invoice</th>
+                  <th className="text-center text-nowrap" style={{ width: "70px" }}>Thermal Print</th>
+                  <th className="text-center text-nowrap" style={{ minWidth: isCashier ? "110px" : "150px" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -726,7 +744,7 @@ Showing {startEntry} to {endEntry} of {total} entries
 
                     return (
                       <tr key={r.id || i} className={isCancelled ? "table-light opacity-75" : ""}>
-                        <td>{startEntry + i}</td>
+                        <td className="text-center">{startEntry + i}</td>
                         <td
                           className="fw-bold text-nowrap"
                           style={{ color: isCancelled ? "#DC2626" : "#0F766E", fontSize: "0.85rem" }}
@@ -736,9 +754,9 @@ Showing {startEntry} to {endEntry} of {total} entries
                             <span className="ms-1 text-danger small fw-normal">(Cancelled)</span>
                           )}
                         </td>
-                        <td>{formatDate(r.date)}</td>
+                        <td className="text-nowrap">{formatDate(r.date)}</td>
                         <td>{r.customer_name ?? "-"}</td>
-                        <td>{r.contact_number ?? "-"}</td>
+                        <td className="text-nowrap">{r.contact_number ?? "-"}</td>
                         <td
                           className="text-nowrap"
                           style={{ maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis" }}
@@ -754,30 +772,30 @@ Showing {startEntry} to {endEntry} of {total} entries
                         </td>
                         <td className="small text-nowrap">
                           {r.sales_person_name ? (
-                            <span className="badge bg-light text-dark border px-2 py-1">
-                              <FaUserTie className="text-warning me-1" size={10} />
-                              {r.sales_person_name}
+                            <span className="badge bg-light text-dark border px-2 py-1 d-inline-flex align-items-center gap-1 shadow-sm">
+                              <FaUserTie className="text-warning" size={11} />
+                              <span>{r.sales_person_name}</span>
                             </span>
                           ) : (
                             <span className="text-muted">—</span>
                           )}
                         </td>
-                        <td>
+                        <td className="text-center">
                           <span className={`badge ${statusBadgeClass} px-2 py-1 fw-bold`}>
                             {statusText}
                           </span>
                         </td>
-                        <td>{r.payment_method ?? "-"}</td>
-                        <td className="fw-semibold">
+                        <td className="text-center text-nowrap">{r.payment_method ?? "-"}</td>
+                        <td className="fw-semibold text-end">
                           ₹{totalAmount.toFixed(2)}
                         </td>
-                        <td className={isCancelled ? "text-muted fw-semibold" : "text-success fw-semibold"}>
+                        <td className={`text-end ${isCancelled ? "text-muted fw-semibold" : "text-success fw-semibold"}`}>
                           ₹{totalPaid.toFixed(2)}
                         </td>
-                        <td className={isCancelled ? "text-muted" : remainingAmount > 0.001 ? "text-danger fw-bold" : "text-muted"}>
+                        <td className={`text-end ${isCancelled ? "text-muted" : remainingAmount > 0.001 ? "text-danger fw-bold" : "text-muted"}`}>
                           ₹{remainingAmount.toFixed(2)}
                         </td>
-                        <td>{r.total_qty != null ? Number(r.total_qty).toFixed(2) : "-"}</td>
+                        <td className="text-center">{r.total_qty != null ? Number(r.total_qty).toFixed(2) : "-"}</td>
                         <td className="text-center text-nowrap align-middle">
                           <Button
                             size="sm"
@@ -807,44 +825,47 @@ Showing {startEntry} to {endEntry} of {total} entries
                           </Button>
                         </td>
                         <td className="text-center text-nowrap align-middle">
-                          {isCancelled ? (
-                            <>
-                              <Button
-                                size="sm"
-                                color="info"
-                                outline
-                                onClick={() => viewSale(r.id)}
-                                title="View Details"
-                                className="me-1 py-1 px-2"
-                              >
-                                <FaEye />
-                              </Button>
-                              <span
-                                className="badge bg-secondary py-1 px-2 me-1"
-                                style={{ fontSize: "0.72rem" }}
-                                title="This sale has been cancelled"
-                              >
-                                <FaBan className="me-1" /> Cancelled
-                              </span>
-                              <Button
-                                size="sm"
-                                color="danger"
-                                outline
-                                onClick={() => openDeleteConfirm(r)}
-                                title="Delete"
-                                className="py-1 px-2"
-                              >
-                                <FaTrash />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
+                          <div className="d-inline-flex align-items-center justify-content-center gap-1">
+                            {isCancelled ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  color="info"
+                                  outline
+                                  onClick={() => viewSale(r.id)}
+                                  title="View Details"
+                                  className="py-1 px-2"
+                                >
+                                  <FaEye />
+                                </Button>
+                                <span
+                                  className="badge bg-secondary py-1 px-2"
+                                  style={{ fontSize: "0.72rem" }}
+                                  title="This sale has been cancelled"
+                                >
+                                  <FaBan className="me-1" /> Cancelled
+                                </span>
+                                {!isCashier && (
+                                  <Button
+                                    size="sm"
+                                    color="danger"
+                                    outline
+                                    onClick={() => openDeleteConfirm(r)}
+                                    title="Delete"
+                                    className="py-1 px-2"
+                                  >
+                                    <FaTrash />
+                                  </Button>
+                                )}
+                              </>
+                            ) : (
+                              <>
                                 {remainingAmount > 0.001 && (
                                   <Button
                                     size="sm"
                                     onClick={() => openPayModal(r)}
                                     title="Pay Remaining Amount"
-                                    className="me-1 py-1 px-2 fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
+                                    className="py-1 px-2 fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
                                     style={{
                                       background: "linear-gradient(135deg, #D49A00 0%, #FFD700 100%)",
                                       color: "#08090D",
@@ -855,61 +876,66 @@ Showing {startEntry} to {endEntry} of {total} entries
                                     <FaMoneyBillWave size={12} /> Pay
                                   </Button>
                                 )}
-                              <Button
-                                size="sm"
-                                color="info"
-                                outline
-                                onClick={() => viewSale(r.id)}
-                                title="View"
-                                className="me-1 py-1 px-2"
-                              >
-                                <FaEye />
-                              </Button>
-                              {isSaleEditable(r.date) ? (
                                 <Button
                                   size="sm"
-                                  color="primary"
+                                  color="info"
                                   outline
-                                  onClick={() => editSale(r.id)}
-                                  title="Edit"
-                                  className="me-1 py-1 px-2"
+                                  onClick={() => viewSale(r.id)}
+                                  title="View"
+                                  className="py-1 px-2"
                                 >
-                                  <FaEdit />
+                                  <FaEye />
                                 </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  color="secondary"
-                                  outline
-                                  disabled
-                                  title="Cannot edit sales older than 30 days"
-                                  className="me-1 py-1 px-2"
-                                >
-                                  <FaEdit />
-                                </Button>
-                              )}
-                              <Button
-                                size="sm"
-                                color="warning"
-                                outline
-                                onClick={() => openCancelModal(r)}
-                                title="Cancel Sale & Refund"
-                                className="me-1 py-1 px-2"
-                              >
-                                <FaBan />
-                              </Button>
-                              <Button
-                                size="sm"
-                                color="danger"
-                                outline
-                                onClick={() => openDeleteConfirm(r)}
-                                title="Delete"
-                                className="py-1 px-2"
-                              >
-                                <FaTrash />
-                              </Button>
-                            </>
-                          )}
+                                {isSaleEditable(r.date) ? (
+                                  <Button
+                                    size="sm"
+                                    color="primary"
+                                    outline
+                                    onClick={() => editSale(r.id)}
+                                    title="Edit"
+                                    className="py-1 px-2"
+                                  >
+                                    <FaEdit />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    color="secondary"
+                                    outline
+                                    disabled
+                                    title="Cannot edit sales older than 30 days"
+                                    className="py-1 px-2"
+                                  >
+                                    <FaEdit />
+                                  </Button>
+                                )}
+                                {!isCashier && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      color="warning"
+                                      outline
+                                      onClick={() => openCancelModal(r)}
+                                      title="Cancel Sale & Refund"
+                                      className="py-1 px-2"
+                                    >
+                                      <FaBan />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      color="danger"
+                                      outline
+                                      onClick={() => openDeleteConfirm(r)}
+                                      title="Delete"
+                                      className="py-1 px-2"
+                                    >
+                                      <FaTrash />
+                                    </Button>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

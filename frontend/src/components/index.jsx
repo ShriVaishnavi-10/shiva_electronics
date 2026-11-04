@@ -23,6 +23,20 @@ const ALLOWED_NON_USER_PATHS = [
   "expenses"
 ];
 
+const ALLOWED_CASHIER_PATHS = [
+  "billing",
+  "salesform",
+  "saleslist",
+  "salesreceipt",
+  "thermalreceipt",
+  "customer",
+  "product",
+  "stock-details",
+  "day-closing",
+  "dailysalesreport",
+  "daily-cash-report"
+];
+
 const Index = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -31,7 +45,26 @@ const Index = () => {
 
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
-    const isNonUser = storedUser.role_name?.toLowerCase().includes("non user") || storedUser.role_id === 6;
+    const roleName = String(storedUser.role_name || storedUser.role || "").toLowerCase();
+    const isCashier = storedUser.is_cashier || roleName.includes("cashier") || storedUser.role_id === 8;
+    const isSalesPerson = (roleName.includes("sales") || storedUser.role_id === 7) && !isCashier;
+    const isNonUser = roleName.includes("non user") || storedUser.role_id === 6;
+
+    // Sales Person has NO access to Billing ERP! Strictly restricted to HRMS.
+    if (isSalesPerson) {
+      navigate("/hrms/dashboard", { replace: true });
+      return;
+    }
+
+    if (isCashier) {
+      const pathParts = location.pathname.toLowerCase().split("/").filter(Boolean);
+      const subPath = pathParts[1] || "saleslist";
+      const isAllowed = ALLOWED_CASHIER_PATHS.some(allowed => subPath.startsWith(allowed));
+      if (!isAllowed) {
+        navigate("/index/salesList", { replace: true });
+      }
+      return;
+    }
 
     if (isNonUser) {
       const pathParts = location.pathname.toLowerCase().split("/").filter(Boolean);

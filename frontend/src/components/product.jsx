@@ -734,6 +734,10 @@ export default function ProductList() {
                   <div>{viewDetail.qty != null ? viewDetail.qty : "—"}</div>
                 </Col>
                 <Col md={4}>
+                  <strong className="text-muted">Quantity</strong>
+                  <div>{viewDetail.quantity ?? "—"}</div>
+                </Col>
+                <Col md={4}>
                   <strong className="text-muted">Min. order qty</strong>
                   <div>{viewDetail.min_order_quantity ?? "—"}</div>
                 </Col>
@@ -804,6 +808,89 @@ export default function ProductList() {
                         );
                       })}
                     </Row>
+                  </div>
+                );
+              })()}
+
+              {/* Combos in View Modal */}
+              {(() => {
+                let combosList = viewDetail.combos;
+                if (typeof combosList === "string") {
+                  try { combosList = JSON.parse(combosList); } catch (_) { combosList = []; }
+                }
+                if (!Array.isArray(combosList) || combosList.length === 0) return null;
+                return (
+                  <div className="mt-3 p-2.5 rounded border" style={{ backgroundColor: "#F0F9FF", borderColor: "#BAE6FD" }}>
+                    <strong className="d-block mb-1 text-primary small">📦 Included Combo Package / Accessories:</strong>
+                    <div className="d-flex flex-wrap gap-1">
+                      {combosList.map((item, i) => (
+                        <span key={i} className="badge bg-primary text-white" style={{ fontSize: "0.8rem", padding: "4px 8px" }}>
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Freebies in View Modal */}
+              {(() => {
+                let freebiesList = viewDetail.freebies;
+                if (typeof freebiesList === "string") {
+                  try { freebiesList = JSON.parse(freebiesList); } catch (_) { freebiesList = []; }
+                }
+                if (!Array.isArray(freebiesList) || freebiesList.length === 0) return null;
+                return (
+                  <div className="mt-2 p-2.5 rounded border" style={{ backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }}>
+                    <strong className="d-block mb-1 text-warning-emphasis small">🎁 Freebies / Complimentary Gifts:</strong>
+                    <div className="d-flex flex-wrap gap-1">
+                      {freebiesList.map((item, i) => (
+                        <span key={i} className="badge bg-warning text-dark" style={{ fontSize: "0.8rem", padding: "4px 8px" }}>
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Unit Serial & IMEI Numbers in View Modal (Option A) */}
+              {(() => {
+                let serialList = viewDetail.serial_units;
+                if (typeof serialList === "string") {
+                  try { serialList = JSON.parse(serialList); } catch (_) { serialList = []; }
+                }
+                if (!Array.isArray(serialList) || serialList.length === 0) return null;
+                return (
+                  <div className="mt-2 p-2.5 rounded border" style={{ backgroundColor: "#F8FAFC", borderColor: "#E2E8F0" }}>
+                    <div className="d-flex align-items-center justify-content-between mb-1.5">
+                      <strong className="text-primary small">📱 Unit Tracking (IMEI 1, IMEI 2 & Serial Numbers):</strong>
+                      <span className="badge bg-secondary">{serialList.length} Units</span>
+                    </div>
+                    <div className="table-responsive" style={{ maxHeight: "200px", overflowY: "auto" }}>
+                      <table className="table table-sm table-bordered mb-0 small">
+                        <thead className="table-light">
+                          <tr>
+                            <th>#</th>
+                            <th>IMEI 1</th>
+                            <th>IMEI 2</th>
+                            <th>Serial No</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {serialList.map((unit, i) => (
+                            <tr key={i}>
+                              <td className="text-center fw-bold text-muted">Unit {i + 1}</td>
+                              <td><code>{unit.imei_1 || "—"}</code></td>
+                              <td><code>{unit.imei_2 || "—"}</code></td>
+                              <td><code>{unit.serial_number || "—"}</code></td>
+                              <td><span className="badge bg-success">{unit.status || "Available"}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 );
               })()}

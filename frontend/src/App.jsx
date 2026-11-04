@@ -63,6 +63,7 @@ import CrmNewFollowup from "./components/crm/CrmNewFollowup";
 import CrmCompletedLeads from "./components/crm/CrmCompletedLeads";
 import CrmLeadReports from "./components/crm/CrmLeadReports";
 import CrmFollowupReports from "./components/crm/CrmFollowupReports";
+import HrmsDashboard from "./components/HrmsDashboard";
 
 function App() {
   useEffect(() => {
@@ -106,6 +107,10 @@ function App() {
           <Route path="reports/leads" element={<CrmLeadReports />} />
           <Route path="reports/followups" element={<CrmFollowupReports />} />
         </Route>
+        {/* Dedicated Standalone HRMS Panel (Separate URL outside Billing layout) */}
+        <Route path="/hrms" element={<HrmsDashboard />} />
+        <Route path="/hrms/:tab" element={<HrmsDashboard />} />
+
         {/* Layout Route */}
         <Route path="/index" element={<Index />}>
           <Route path="customer" element={<Customer />} />

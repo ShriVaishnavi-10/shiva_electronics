@@ -13,6 +13,7 @@
     "@fortawesome/fontawesome-svg-core": "^7.1.0",
     "@fortawesome/free-solid-svg-icons": "^7.1.0",
     "@fortawesome/react-fontawesome": "^3.1.1",
+    "@tailwindcss/vite": "^4.3.3",
     "axios": "^1.13.2",
     "bootstrap": "^5.3.8",
     "chart.js": "^4.5.1",
@@ -35,6 +36,7 @@
     "react-to-print": "^3.2.0",
     "react-toastify": "^11.0.5",
     "reactstrap": "^9.2.3",
+    "tailwindcss": "^4.3.3",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
