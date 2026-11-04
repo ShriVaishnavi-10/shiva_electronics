@@ -21,6 +21,7 @@ router.post(
 );
 router.post("/customers", customerValidation, customerController.createCustomer);
 router.get("/customers", customerController.getCustomers);
+router.get("/customers/:id/history", customerController.getCustomerHistory);
 router.get("/customers/:id", customerController.getCustomerById);
 router.put("/customers/:id", customerValidation, customerController.updateCustomer);
 router.delete("/customers/:id", customerController.deleteCustomer);

@@ -53,6 +53,16 @@ import DailyCashReport from "./components/DailyCashReport";
 import DailySalesReport from "./components/DailySalesReport";
 import SalesPersons from "./components/SalesPersons";
 import SalesPersonReport from "./components/SalesPersonReport";
+import CrmLayout from "./components/crm/CrmLayout";
+import CrmDashboard from "./components/crm/CrmDashboard";
+import CrmContacts from "./components/crm/CrmContacts";
+import CrmLeadsList from "./components/crm/CrmLeadsList";
+import CrmNewLead from "./components/crm/CrmNewLead";
+import CrmFollowupsList from "./components/crm/CrmFollowupsList";
+import CrmNewFollowup from "./components/crm/CrmNewFollowup";
+import CrmCompletedLeads from "./components/crm/CrmCompletedLeads";
+import CrmLeadReports from "./components/crm/CrmLeadReports";
+import CrmFollowupReports from "./components/crm/CrmFollowupReports";
 
 function App() {
   useEffect(() => {
@@ -80,6 +90,22 @@ function App() {
         <Route path="/index/salesForm" element={<SalesForm />} />
         <Route path="/index/salesForm/:id" element={<SalesForm />} />
 
+
+        {/* Dedicated CRM Portal Layout & Routes */}
+        <Route path="/crm" element={<CrmLayout />}>
+          <Route index element={<CrmDashboard />} />
+          <Route path="dashboard" element={<CrmDashboard />} />
+          <Route path="contacts" element={<CrmContacts />} />
+          <Route path="leads" element={<CrmLeadsList />} />
+          <Route path="leads/new" element={<CrmNewLead />} />
+          <Route path="leads/edit/:id" element={<CrmNewLead />} />
+          <Route path="followups" element={<CrmFollowupsList />} />
+          <Route path="followups/new" element={<CrmNewFollowup />} />
+          <Route path="completed-leads" element={<CrmCompletedLeads />} />
+          <Route path="reports" element={<CrmLeadReports />} />
+          <Route path="reports/leads" element={<CrmLeadReports />} />
+          <Route path="reports/followups" element={<CrmFollowupReports />} />
+        </Route>
         {/* Layout Route */}
         <Route path="/index" element={<Index />}>
           <Route path="customer" element={<Customer />} />

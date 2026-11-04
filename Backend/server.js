@@ -113,6 +113,8 @@ app.use("/api", require("./routes/ledger.routes"));
 app.use("/api", require("./routes/bankAccount.routes"));
 app.use("/api", require("./routes/dailyCash.routes"));
 app.use("/api", require("./routes/dailySalesReport.routes"));
+app.use("/api", require("./routes/crmLead.routes"));
+app.use("/api/crm/followups", require("./routes/crmFollowup.routes"));
 
 /* -------------------- ERROR HANDLER -------------------- */
 
@@ -133,6 +135,8 @@ const { ensurePurchaseChargesColumns } = require("./migrations/add_purchase_char
 const { ensureSalesChargesColumns } = require("./migrations/add_sales_charges_columns");
 const { updateSslToCtw } = require("./migrations/update_ssl_to_ctw");
 const { ensureSalesPersonTables } = require("./migrations/create_sales_person_tables");
+const { ensureCrmLeadsTables } = require("./migrations/create_crm_leads_tables");
+const { ensureCrmFollowupsTables } = require("./migrations/create_crm_followups_tables");
 
 const PORT = process.env.PORT || 5000;
 
@@ -145,4 +149,6 @@ app.listen(PORT, "0.0.0.0", () => {
   ensureSalesChargesColumns().catch(() => {});
   updateSslToCtw().catch(() => {});
   ensureSalesPersonTables().catch(() => {});
+  ensureCrmLeadsTables().catch(() => {});
+  ensureCrmFollowupsTables().catch(() => {});
 });

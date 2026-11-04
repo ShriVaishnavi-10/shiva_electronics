@@ -456,3 +456,260 @@ exports.bulkUploadCustomers = async (req, res) => {
     return res.status(500).json({ message: err.message || "Bulk upload failed" });
   }
 };
+
+// -------------------------------------------------------------
+// Get Complete Customer History (Sales, Quotations, Leads, Follow-ups, Payments)
+// -------------------------------------------------------------
+exports.getCustomerHistory = (req, res) => {
+  const { id } = req.params;
+
+  db.query("SELECT * FROM customers WHERE id = ?", [id], async (err, customerRows) => {
+    if (err) {
+      console.error("getCustomerHistory error (customer):", err);
+      return res.status(500).json({ success: false, message: "Database query failed", error: err.message });
+    }
+    if (!customerRows || customerRows.length === 0) {
+      return res.status(404).json({ success: false, message: "Customer not found" });
+    }
+
+    const customer = customerRows[0];
+    const customerPhone = customer.contact_no ? customer.contact_no.trim() : "";
+    const customerAltPhone = customer.alternate_no ? customer.alternate_no.trim() : "";
+    const customerName = customer.customer_name ? customer.customer_name.trim() : "";
+
+    const queryPromise = (sql, params = []) =>
+      new Promise((resolve) => {
+        db.query(sql, params, (qErr, rows) => {
+          if (qErr) {
+            console.error("History query error:", qErr.sqlMessage || qErr.message);
+            resolve([]);
+          } else {
+            resolve(rows || []);
+          }
+        });
+      });
+
+    try {
+      // 1. Transactions / Sales Invoices
+      const sales = await queryPromise(
+        `SELECT 
+          t.id, 
+          t.invoice_no, 
+          t.type, 
+          t.sales_date, 
+          t.final_amount, 
+          t.payment_status, 
+          t.status, 
+          t.created_at,
+          sp.name AS sales_person_name
+        FROM transactions t
+        LEFT JOIN sales_persons sp ON t.sales_person_id = sp.id
+        WHERE t.contact_id = ?
+        ORDER BY t.sales_date DESC, t.id DESC`,
+        [id]
+      );
+
+      // 2. Quotations
+      const quotations = await queryPromise(
+        `SELECT 
+          q.id, 
+          q.quotation_no, 
+          q.quotation_date, 
+          q.valid_till_date, 
+          q.notes, 
+          q.created_at,
+          COALESCE((SELECT SUM(qi.total) FROM quotation_items qi WHERE qi.quotation_id = q.id), 0) AS total_amount
+        FROM quotations q
+        WHERE q.customer_id = ?
+        ORDER BY q.quotation_date DESC, q.id DESC`,
+        [id]
+      );
+
+      // 3. CRM Leads (Match by phone or customer name)
+      const leadConds = [];
+      const leadParams = [];
+      if (customerPhone) {
+        leadConds.push("mobile_number = ? OR whatsapp_number = ?");
+        leadParams.push(customerPhone, customerPhone);
+      }
+      if (customerAltPhone) {
+        leadConds.push("mobile_number = ? OR whatsapp_number = ?");
+        leadParams.push(customerAltPhone, customerAltPhone);
+      }
+      if (customerName) {
+        leadConds.push("company_name = ? OR CONCAT(first_name, ' ', COALESCE(last_name, '')) = ?");
+        leadParams.push(customerName, customerName);
+      }
+
+      let leads = [];
+      if (leadConds.length > 0) {
+        leads = await queryPromise(
+          `SELECT 
+            id, 
+            lead_code, 
+            lead_title, 
+            first_name, 
+            last_name, 
+            company_name, 
+            mobile_number, 
+            lead_source, 
+            lead_status, 
+            priority, 
+            expected_budget, 
+            expected_closing_date, 
+            interested_product, 
+            assigned_to, 
+            created_at
+          FROM crm_leads
+          WHERE ${leadConds.join(" OR ")}
+          ORDER BY created_at DESC`,
+          leadParams
+        );
+      }
+
+      // 4. CRM Follow-ups
+      const fuConds = ["(related_to = 'Contact' AND entity_id = ?)"];
+      const fuParams = [id];
+      if (customerPhone) {
+        fuConds.push("mobile_number = ?");
+        fuParams.push(customerPhone);
+      }
+      if (customerName) {
+        fuConds.push("entity_name = ?");
+        fuParams.push(customerName);
+      }
+
+      const followups = await queryPromise(
+        `SELECT 
+          id, 
+          followup_code, 
+          followup_title, 
+          related_to, 
+          entity_id, 
+          entity_name, 
+          mobile_number, 
+          followup_type, 
+          followup_date, 
+          followup_time, 
+          duration, 
+          priority, 
+          followup_status, 
+          discussion_summary, 
+          customer_requirement, 
+          customer_response, 
+          next_action, 
+          assigned_to, 
+          created_by, 
+          reminder_enabled, 
+          next_followup_date, 
+          next_followup_time, 
+          created_at
+        FROM crm_followups
+        WHERE ${fuConds.join(" OR ")}
+        ORDER BY followup_date DESC, id DESC`,
+        fuParams
+      );
+
+      // 5. Payments
+      const payments = await queryPromise(
+        `SELECT 
+          tp.id, 
+          tp.transaction_id, 
+          tp.amount, 
+          tp.method, 
+          tp.card_type, 
+          tp.payment_ref_no, 
+          tp.created_at, 
+          t.invoice_no
+        FROM transaction_payments tp
+        JOIN transactions t ON tp.transaction_id = t.id
+        WHERE t.contact_id = ?
+        ORDER BY tp.created_at DESC`,
+        [id]
+      );
+
+      // 6. Aggregate Summary
+      const totalSpend = sales.reduce((sum, s) => sum + (parseFloat(s.final_amount) || 0), 0);
+      const totalPaid = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+
+      // 7. Unified Chronological Timeline
+      const timeline = [
+        ...sales.map((s) => ({
+          type: "sale",
+          id: `sale_${s.id}`,
+          date: s.sales_date || s.created_at,
+          title: `Sales Invoice #${s.invoice_no || s.id}`,
+          amount: parseFloat(s.final_amount) || 0,
+          status: s.payment_status || s.status || "Completed",
+          subtitle: `Rep: ${s.sales_person_name || "Direct Store"} • Status: ${s.payment_status || "Completed"}`,
+          details: s
+        })),
+        ...quotations.map((q) => ({
+          type: "quotation",
+          id: `quote_${q.id}`,
+          date: q.quotation_date || q.created_at,
+          title: `Quotation #${q.quotation_no}`,
+          amount: parseFloat(q.total_amount) || 0,
+          status: "Quoted",
+          subtitle: q.valid_till_date ? `Valid till ${String(q.valid_till_date).slice(0, 10)}` : "Quotation Generated",
+          details: q
+        })),
+        ...leads.map((l) => ({
+          type: "lead",
+          id: `lead_${l.id}`,
+          date: l.created_at,
+          title: `CRM Lead: ${l.lead_title}`,
+          amount: parseFloat(l.expected_budget) || 0,
+          status: l.lead_status || "New",
+          subtitle: `Product: ${l.interested_product || "General"} • Assigned: ${l.assigned_to || "Unassigned"}`,
+          details: l
+        })),
+        ...followups.map((f) => ({
+          type: "followup",
+          id: `fu_${f.id}`,
+          date: f.followup_date ? `${f.followup_date} ${f.followup_time || "00:00:00"}` : f.created_at,
+          title: `${f.followup_type || "Follow-up"}: ${f.followup_title}`,
+          amount: 0,
+          status: f.followup_status || "Pending",
+          subtitle: `Feedback: ${f.customer_response || "Pending"} • Staff: ${f.assigned_to || "Unassigned"}`,
+          details: f
+        })),
+        ...payments.map((p) => ({
+          type: "payment",
+          id: `pay_${p.id}`,
+          date: p.created_at,
+          title: `Payment Received`,
+          amount: parseFloat(p.amount) || 0,
+          status: "Received",
+          subtitle: `Mode: ${p.method || "Cash"} • Invoice: ${p.invoice_no || "General"}`,
+          details: p
+        }))
+      ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+      res.json({
+        success: true,
+        data: {
+          customer,
+          summary: {
+            total_purchases_amount: totalSpend,
+            total_invoices_count: sales.length,
+            total_quotations_count: quotations.length,
+            total_leads_count: leads.length,
+            total_followups_count: followups.length,
+            total_payments_amount: totalPaid,
+            opening_balance: parseFloat(customer.opening_balance) || 0
+          },
+          timeline,
+          sales,
+          quotations,
+          leads,
+          followups,
+          payments
+        }
+      });
+    } catch (processErr) {
+      console.error("getCustomerHistory processing error:", processErr);
+      res.status(500).json({ success: false, message: "Error compiling customer history", error: processErr.message });
+    }
+  });
+};

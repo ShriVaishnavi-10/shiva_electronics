@@ -7,7 +7,7 @@ import {
   FaChevronDown, FaChevronRight, FaWarehouse, FaShoppingCart,
   FaMinusCircle, FaTruck, FaStore, FaMapMarkerAlt, FaDollarSign,
   FaPercent, FaLayerGroup, FaCodeBranch, FaUserShield, FaTools, FaWallet,
-  FaMoon, FaMoneyCheckAlt, FaUndo
+  FaMoon, FaMoneyCheckAlt, FaUndo, FaHandshake
 } from "react-icons/fa";
 import "../style/Sidebar.css";
 
@@ -91,6 +91,34 @@ const SidebarContent = ({ close, collapsed = false }) => {
           {!collapsed && <span className="menu-text">Dashboard</span>}
         </NavItem>
         )}
+
+        {/* CRM Portal */}
+        <NavItem
+          className={`menu-item ${location.pathname.startsWith("/crm") ? "active" : ""}`}
+          onClick={() => {
+            navigate("/crm");
+            close && close();
+          }}
+          title={collapsed ? "CRM Portal" : undefined}
+        >
+          <FaHandshake className="menu-icon" style={{ color: "#60a5fa" }} />
+          {!collapsed && <span className="menu-text">CRM</span>}
+          {!collapsed && (
+            <span
+              className="badge ms-auto"
+              style={{
+                fontSize: "10px",
+                background: "linear-gradient(135deg, #2563eb, #7c3aed)",
+                color: "#ffffff",
+                padding: "2px 7px",
+                borderRadius: "10px",
+                fontWeight: "700"
+              }}
+            >
+              Portal
+            </span>
+          )}
+        </NavItem>
 
         {/* 2. Category (GST only) */}
         {!isNonUser && hasPermission("category.view") && (
