@@ -1,0 +1,344 @@
+/* ============================================================== */
+/* SHIVA ELECTRONICS - HRMS GOLD & OBSIDIAN ENTERPRISE THEME      */
+/* ============================================================== */
+
+:root {
+  --hrms-gold: #FFD700;
+  --hrms-gold-dark: #D49A00;
+  --hrms-gold-light: #FFF275;
+  --hrms-obsidian: #0e121e;
+  --hrms-obsidian-dark: #060810;
+  --hrms-bg-light: #f4f6fb;
+  --hrms-border-gold: rgba(255, 215, 0, 0.25);
+  --hrms-gold-glow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+/* Master Layout */
+.hrms-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--hrms-bg-light);
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Gold & Obsidian Sidebar */
+.hrms-sidebar {
+  width: 260px;
+  height: 100%;
+  background: linear-gradient(180deg, #0e121e 0%, #060810 100%);
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  overflow: hidden;
+  box-shadow: 6px 0 25px rgba(0, 0, 0, 0.5);
+  border-right: 1.5px solid rgba(255, 215, 0, 0.22);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.hrms-sidebar.collapsed {
+  width: 76px;
+}
+
+.hrms-sidebar-header {
+  padding: 18px 20px;
+  font-size: 13.5px;
+  text-transform: uppercase;
+  letter-spacing: 2.2px;
+  font-weight: 800;
+  color: #FFD700;
+  background: rgba(255, 215, 0, 0.05);
+  text-align: left;
+  border-bottom: 1.5px solid rgba(255, 215, 0, 0.2);
+  flex-shrink: 0;
+  backdrop-filter: blur(10px);
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hrms-sidebar-menu {
+  padding: 16px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #D49A00 transparent;
+}
+
+.hrms-sidebar-menu::-webkit-scrollbar {
+  width: 5px;
+}
+.hrms-sidebar-menu::-webkit-scrollbar-thumb {
+  background: #D49A00;
+  border-radius: 10px;
+}
+
+.hrms-menu-item {
+  padding: 11px 14px;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #cbd5e1;
+  transition: all 0.22s ease;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  width: 100%;
+}
+
+.hrms-menu-item:hover {
+  background: rgba(255, 215, 0, 0.12);
+  color: #ffffff;
+  transform: translateX(4px);
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.12);
+  border-color: rgba(255, 215, 0, 0.35);
+}
+
+.hrms-menu-item.active {
+  background: linear-gradient(135deg, #FFD700 0%, #D49A00 100%);
+  color: #08090D !important;
+  font-weight: 700;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.35);
+  border-color: #FFD700;
+}
+
+.hrms-menu-item.active .hrms-menu-icon {
+  color: #08090D !important;
+  filter: none;
+}
+
+.hrms-menu-icon {
+  font-size: 17px;
+  min-width: 22px;
+  color: #FFD700;
+  transition: all 0.22s ease;
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.3));
+}
+
+.hrms-billing-return-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 12px;
+  padding: 9px 14px;
+  background: rgba(255, 215, 0, 0.08);
+  border: 1.5px solid rgba(255, 215, 0, 0.35);
+  color: #FFD700;
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.hrms-billing-return-btn:hover {
+  background: linear-gradient(135deg, #FFD700 0%, #D49A00 100%);
+  color: #08090D;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Header */
+.hrms-top-header {
+  min-height: 64px;
+  height: auto;
+  background: linear-gradient(135deg, #0e121e 0%, #060810 100%);
+  border-bottom: 1.5px solid rgba(255, 215, 0, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 24px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  z-index: 50;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Content Area */
+.hrms-content-area {
+  flex: 1;
+  background: #f4f6fb;
+  padding: 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+}
+
+/* Cards & UI Elements */
+.hrms-card {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.hrms-card:hover {
+  border-color: rgba(212, 154, 0, 0.35);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
+}
+
+.hrms-gold-btn {
+  background: linear-gradient(135deg, #FFD700 0%, #D49A00 100%);
+  color: #08090D !important;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 3px 10px rgba(212, 154, 0, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hrms-gold-btn:hover {
+  background: linear-gradient(135deg, #FFF275 0%, #FFD700 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 15px rgba(255, 215, 0, 0.35);
+}
+
+.hrms-outline-gold-btn {
+  background: transparent;
+  color: #D49A00 !important;
+  border: 1.5px solid #D49A00;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hrms-outline-gold-btn:hover {
+  background: rgba(255, 215, 0, 0.1);
+  border-color: #FFD700;
+  color: #B28200 !important;
+}
+
+/* Badges */
+.hrms-badge-gold {
+  background: rgba(255, 215, 0, 0.15);
+  color: #B28200;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  font-weight: 700;
+}
+
+/* ============================================================== */
+/* SHIVA BILLING HARMONY - LIGHT THEME OVERRIDES FOR WORKSPACE     */
+/* ============================================================== */
+
+.hrms-content-area [class*="bg-slate-900"],
+
+.hrms-content-area .bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04) !important;
+  color: #1e293b !important;
+}
+
+.hrms-content-area [class*="bg-slate-950"],
+
+.hrms-content-area .bg-slate-950 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+.hrms-content-area .border-slate-800,
+
+.hrms-content-area [class*="border-slate-800"] {
+  border-color: #e2e8f0 !important;
+}
+
+.hrms-content-area .text-slate-100,
+.hrms-content-area .text-slate-200 {
+  color: #0f172a !important;
+}
+
+.hrms-content-area .text-slate-300,
+.hrms-content-area .text-slate-400 {
+  color: #475569 !important;
+}
+
+.hrms-content-area .text-slate-500 {
+  color: #64748b !important;
+}
+
+.hrms-content-area select,
+.hrms-content-area input[type="text"],
+.hrms-content-area input[type="date"],
+.hrms-content-area input[type="time"],
+.hrms-content-area input[type="number"],
+.hrms-content-area input[type="tel"],
+.hrms-content-area input[type="email"],
+.hrms-content-area textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+.hrms-content-area select:focus,
+.hrms-content-area input:focus,
+.hrms-content-area textarea:focus {
+  border-color: #D49A00 !important;
+  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.25) !important;
+}
+
+.hrms-content-area table th {
+  background-color: #f8fafc !important;
+  color: #475569 !important;
+  font-weight: 700 !important;
+}
+
+.hrms-content-area table tr:hover td {
+  background-color: #f1f5f9 !important;
+}
+
+/* Modals */
+.hrms-content-area .fixed.inset-0 .bg-slate-900 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2) !important;
+}
+
+.hrms-content-area .fixed.inset-0 [class*="bg-slate-950"] {
+  background-color: #f8fafc !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+/* Gold Theme Primary Buttons */
+.hrms-content-area .bg-gradient-to-r.from-emerald-500.to-teal-500 {
+  background: linear-gradient(135deg, #FFD700 0%, #D49A00 100%) !important;
+  color: #08090D !important;
+  font-weight: 700 !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(212, 154, 0, 0.25) !important;
+}
+
+.hrms-content-area .bg-gradient-to-r.from-emerald-500.to-teal-500:hover {
+  background: linear-gradient(135deg, #FFF275 0%, #FFD700 100%) !important;
+  transform: translateY(-1px);
+}
+

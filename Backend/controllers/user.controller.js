@@ -123,6 +123,21 @@ exports.create = async (req, res) => {
 
         syncUserBranches(userId, ids, (syncErr) => {
           if (syncErr) console.error("Branch sync error:", syncErr.message);
+
+          // Synchronize with hrms_employees if matching by email or phone
+          if (email || phone) {
+            db.query(
+              `UPDATE hrms_employees 
+               SET user_id = ?, password = ? 
+               WHERE (email = ? AND email IS NOT NULL AND email != '') 
+                  OR (phone = ? AND phone IS NOT NULL AND phone != '')`,
+              [userId, hash, email || '', phone || ''],
+              (empErr) => {
+                if (empErr) console.warn("HRMS sync warning:", empErr.message);
+              }
+            );
+          }
+
           res.json({ message: "User created", id: userId });
         });
       },
@@ -163,6 +178,23 @@ exports.update = async (req, res) => {
     const ids = Array.isArray(branch_ids) ? branch_ids : (branch_id ? [branch_id] : []);
     syncUserBranches(parseInt(id, 10), ids, (syncErr) => {
       if (syncErr) console.error("Branch sync error:", syncErr.message);
+
+      // Synchronize with hrms_employees if password or credentials updated
+      if (fields.password || email || phone) {
+        const empUpdate = {};
+        if (fields.password) empUpdate.password = fields.password;
+        if (email) empUpdate.email = email;
+        if (phone) empUpdate.phone = phone;
+
+        db.query(
+          "UPDATE hrms_employees SET ? WHERE user_id = ? OR (email = ? AND email IS NOT NULL AND email != '')",
+          [empUpdate, id, email || ''],
+          (empErr) => {
+            if (empErr) console.warn("HRMS sync warning on update:", empErr.message);
+          }
+        );
+      }
+
       res.json({ message: "User updated" });
     });
   });

@@ -17,6 +17,7 @@ exports.createProduct = (req,res)=>{
     secondary_unit,
     hsncode,
     min_order_quantity,
+    quantity,
     image,
     images,
     price,
@@ -25,9 +26,13 @@ exports.createProduct = (req,res)=>{
     discount_percent,
     barcode,
     product_type,
-    specifications
+    specifications,
+    combos,
+    freebies,
+    serial_units
   } = req.body;
   const imageVal = image || images || null;
+  const quantityVal = quantity == null || quantity === "" ? null : Number(quantity);
   const brandIdVal = (brand_id != null && brand_id !== "") ? parseInt(brand_id, 10) : null;
   const primaryUnitVal = primary_unit || unit || null;
   const unitVal = primaryUnitVal;
@@ -37,10 +42,25 @@ exports.createProduct = (req,res)=>{
     specsVal = typeof specifications === "object" ? JSON.stringify(specifications) : specifications;
   }
 
+  let combosVal = null;
+  if (combos != null) {
+    combosVal = typeof combos === "object" ? JSON.stringify(combos) : combos;
+  }
+
+  let freebiesVal = null;
+  if (freebies != null) {
+    freebiesVal = typeof freebies === "object" ? JSON.stringify(freebies) : freebies;
+  }
+
+  let serialUnitsVal = null;
+  if (serial_units != null) {
+    serialUnitsVal = typeof serial_units === "object" ? JSON.stringify(serial_units) : serial_units;
+  }
+
   db.query(
     `INSERT INTO products
-     (category_id,subcategory_id,brand_id,product_name,product_code,unit,primary_unit,hsncode,min_order_quantity,images,status,is_insulation_subfield,price,discount_percent,branch_id,barcode,product_type,specifications)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     (category_id,subcategory_id,brand_id,product_name,product_code,unit,primary_unit,hsncode,min_order_quantity,quantity,images,status,is_insulation_subfield,price,discount_percent,branch_id,barcode,product_type,specifications,combos,freebies,serial_units)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       category_id,
       subcategory_id || null,
@@ -51,6 +71,7 @@ exports.createProduct = (req,res)=>{
       primaryUnitVal,
       hsncode || null,
       min_order_quantity || null,
+      quantityVal,
       imageVal,
       status || 'Active',
       is_insulation_subfield ? 1 : 0,
@@ -59,14 +80,48 @@ exports.createProduct = (req,res)=>{
       branchIdForInsert(req),
       barcode || null,
       product_type || null,
-      specsVal
+      specsVal,
+      combosVal,
+      freebiesVal,
+      serialUnitsVal
     ],
     (err,result)=>{
       if(err) return res.status(500).json({ message: err.message || "Failed to create product" });
       const insertId = result.insertId;
       
+      const syncSerialNumbers = (cb) => {
+        let units = [];
+        try {
+          units = typeof serial_units === "string" ? JSON.parse(serial_units) : (Array.isArray(serial_units) ? serial_units : []);
+        } catch (_) {}
+
+        if (!Array.isArray(units) || units.length === 0) {
+          return cb();
+        }
+
+        const serialRows = units.map((u, idx) => [
+          insertId,
+          idx + 1,
+          u.imei_1 ? String(u.imei_1).trim() : null,
+          u.imei_2 ? String(u.imei_2).trim() : null,
+          u.serial_number ? String(u.serial_number).trim() : null,
+          u.status || 'AVAILABLE'
+        ]);
+
+        db.query(
+          "INSERT INTO product_serial_numbers (product_id, unit_index, imei_1, imei_2, serial_number, status) VALUES ?",
+          [serialRows],
+          (serialErr) => {
+            if (serialErr) console.error("Error inserting product_serial_numbers:", serialErr.message || serialErr);
+            cb();
+          }
+        );
+      };
+
       const finalizeProduct = () => {
-        res.json({ message:"Product created", id: insertId });
+        syncSerialNumbers(() => {
+          res.json({ message:"Product created", id: insertId });
+        });
       };
 
       if (!barcode) {
@@ -101,6 +156,21 @@ exports.getProducts = (req,res)=>{
             row.specifications = JSON.parse(row.specifications);
           } catch (e) {}
         }
+        if (row.combos && typeof row.combos === "string") {
+          try {
+            row.combos = JSON.parse(row.combos);
+          } catch (e) {}
+        }
+        if (row.freebies && typeof row.freebies === "string") {
+          try {
+            row.freebies = JSON.parse(row.freebies);
+          } catch (e) {}
+        }
+        if (row.serial_units && typeof row.serial_units === "string") {
+          try {
+            row.serial_units = JSON.parse(row.serial_units);
+          } catch (e) {}
+        }
         return row;
       });
       res.json(parsedRows);
@@ -109,6 +179,9 @@ exports.getProducts = (req,res)=>{
 };
 
 exports.updateProduct = (req,res)=>{
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json(errors.array());
+
   const { id } = req.params;
   const updateData = { ...req.body };
   delete updateData.category_name;
@@ -135,11 +208,55 @@ exports.updateProduct = (req,res)=>{
       ? JSON.stringify(updateData.specifications)
       : updateData.specifications;
   }
+  if (updateData.combos != null) {
+    updateData.combos = typeof updateData.combos === "object"
+      ? JSON.stringify(updateData.combos)
+      : updateData.combos;
+  }
+  if (updateData.freebies != null) {
+    updateData.freebies = typeof updateData.freebies === "object"
+      ? JSON.stringify(updateData.freebies)
+      : updateData.freebies;
+  }
+  let rawSerialUnits = null;
+  if (updateData.serial_units !== undefined) {
+    rawSerialUnits = updateData.serial_units;
+    updateData.serial_units = typeof updateData.serial_units === "object" && updateData.serial_units !== null
+      ? JSON.stringify(updateData.serial_units)
+      : updateData.serial_units;
+  }
+
   db.query(
     "UPDATE products SET ? WHERE id=?",
     [updateData, id],
     (err)=>{
       if(err) return res.status(500).json({ message: err.message || "Failed to update product" });
+
+      if (rawSerialUnits !== null && rawSerialUnits !== undefined) {
+        let units = [];
+        try {
+          units = typeof rawSerialUnits === "string" ? JSON.parse(rawSerialUnits) : (Array.isArray(rawSerialUnits) ? rawSerialUnits : []);
+        } catch (_) {}
+
+        db.query("DELETE FROM product_serial_numbers WHERE product_id = ?", [id], () => {
+          if (Array.isArray(units) && units.length > 0) {
+            const serialRows = units.map((u, idx) => [
+              id,
+              idx + 1,
+              u.imei_1 ? String(u.imei_1).trim() : null,
+              u.imei_2 ? String(u.imei_2).trim() : null,
+              u.serial_number ? String(u.serial_number).trim() : null,
+              u.status || 'AVAILABLE'
+            ]);
+            db.query(
+              "INSERT INTO product_serial_numbers (product_id, unit_index, imei_1, imei_2, serial_number, status) VALUES ?",
+              [serialRows],
+              () => {}
+            );
+          }
+        });
+      }
+
       res.json({ message:"Product updated" });
     }
   );
@@ -269,6 +386,21 @@ exports.getProductById = (req, res) => {
       if (product && product.specifications && typeof product.specifications === "string") {
         try {
           product.specifications = JSON.parse(product.specifications);
+        } catch (e) {}
+      }
+      if (product && product.combos && typeof product.combos === "string") {
+        try {
+          product.combos = JSON.parse(product.combos);
+        } catch (e) {}
+      }
+      if (product && product.freebies && typeof product.freebies === "string") {
+        try {
+          product.freebies = JSON.parse(product.freebies);
+        } catch (e) {}
+      }
+      if (product && product.serial_units && typeof product.serial_units === "string") {
+        try {
+          product.serial_units = JSON.parse(product.serial_units);
         } catch (e) {}
       }
       res.json(product);

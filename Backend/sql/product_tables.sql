@@ -9,6 +9,9 @@
 -- Add qty column to products table for quantity tracking
 -- ALTER TABLE products ADD COLUMN qty INT DEFAULT 0 NULL;
 
+-- Add a separate product quantity field (does not replace stock qty)
+-- ALTER TABLE products ADD COLUMN quantity DECIMAL(12,3) NULL DEFAULT 0.000;
+
 -- Add min_order_quantity column (run if column does not exist)
 -- ALTER TABLE products ADD COLUMN min_order_quantity INT NULL;
 

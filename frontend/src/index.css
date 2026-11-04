@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.5;
@@ -70,6 +72,22 @@ button:hover {
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* ── HRMS Component Resets (Avoid index.css global button/h1 overrides) ── */
+.hrms-scope button {
+  background-color: transparent;
+  border-radius: inherit;
+  font-size: inherit;
+  padding: 0;
+  border: none;
+}
+.hrms-scope h1 {
+  font-size: inherit;
+  line-height: inherit;
+}
+.hrms-scope button:hover {
+  border-color: transparent;
 }
 
 @media (prefers-color-scheme: light) {

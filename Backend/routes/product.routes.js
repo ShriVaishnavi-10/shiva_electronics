@@ -4,7 +4,10 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const controller = require("../controllers/product.controller");
-const { productValidation } = require("../validations/product.validation");
+const {
+  productValidation,
+  productQuantityValidation,
+} = require("../validations/product.validation");
 
 const productImageStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -62,7 +65,7 @@ router.get("/quantity/:productId", controller.getProductQuantity);
 router.get("/low-stock", controller.getLowStockProducts);
 router.get("/:id", controller.getProductById);
 
-router.put("/:id", controller.updateProduct);
+router.put("/:id", productQuantityValidation, controller.updateProduct);
 router.delete("/:id", controller.deleteProduct);
 
 module.exports = router;

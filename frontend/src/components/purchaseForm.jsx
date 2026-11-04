@@ -1389,7 +1389,14 @@ export default function PurchaseUI() {
               <Button
                 color="warning"
                 className="w-100"
-                onClick={() => setProductModalOpen(true)}
+                onClick={() =>
+                  navigate("/index/productForm", {
+                    state: {
+                      returnTo: location.pathname,
+                      returnState: location.state,
+                    },
+                  })
+                }
               >
                 <FaPlus className="me-1" /> Add Product
               </Button>

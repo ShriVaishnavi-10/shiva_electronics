@@ -53,6 +53,7 @@ import DailyCashReport from "./components/DailyCashReport";
 import DailySalesReport from "./components/DailySalesReport";
 import SalesPersons from "./components/SalesPersons";
 import SalesPersonReport from "./components/SalesPersonReport";
+import HrmsDashboard from "./components/HrmsDashboard";
 
 function App() {
   useEffect(() => {
@@ -79,6 +80,10 @@ function App() {
         {/* POS Fullscreen Routes */}
         <Route path="/index/salesForm" element={<SalesForm />} />
         <Route path="/index/salesForm/:id" element={<SalesForm />} />
+
+        {/* Dedicated Standalone HRMS Panel (Separate URL outside Billing layout) */}
+        <Route path="/hrms" element={<HrmsDashboard />} />
+        <Route path="/hrms/:tab" element={<HrmsDashboard />} />
 
         {/* Layout Route */}
         <Route path="/index" element={<Index />}>

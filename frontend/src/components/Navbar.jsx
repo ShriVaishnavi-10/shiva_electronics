@@ -236,8 +236,12 @@ const Header = ({
           </DropdownToggle>
 
           <DropdownMenu end>
-            <DropdownItem header>Account</DropdownItem>
-            <DropdownItem disabled>Profile</DropdownItem>
+            <DropdownItem header>
+              Account ({currentUser?.role_name || currentUser?.role || "User"})
+            </DropdownItem>
+            <DropdownItem onClick={() => navigate("/hrms/dashboard")}>
+              ✦ My HRMS & Attendance
+            </DropdownItem>
             <DropdownItem divider />
             <DropdownItem onClick={handleLogout}>Logout</DropdownItem>
           </DropdownMenu>

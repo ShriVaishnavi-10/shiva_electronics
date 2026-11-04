@@ -261,8 +261,9 @@ exports.createTransaction = (req, res) => {
         const insertTransaction = `INSERT INTO transactions (
         business_id, location_id, type, status, contact_id, sales_person_id, address, payment_status,
         invoice_no, sales_date, total_before_tax, tax_amount, discount_type, discount_amount, tax_group_id, final_amount, commission_amount, commission_status, branch_id, is_gst,
-        bill_to_company_name, bill_to_customer_name, bill_to_phone, bill_to_address, bill_to_gstin, bill_to_state, bill_to_state_code, bill_to_place_of_supply, bill_to_place_of_supply_state_code, vehicle_no, eway_invoice_no, transport_charges, additional_charges
-      ) VALUES (?, ?, 'sell', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        bill_to_company_name, bill_to_customer_name, bill_to_phone, bill_to_address, bill_to_gstin, bill_to_state, bill_to_state_code, bill_to_place_of_supply, bill_to_place_of_supply_state_code, vehicle_no, eway_invoice_no, transport_charges, additional_charges,
+        po_no, po_date, transport_mode
+      ) VALUES (?, ?, 'sell', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
         const proceedWithInvoiceNo = (finalInvoiceNo) => {
           let dupSql = `SELECT id FROM transactions WHERE type = 'sell' AND invoice_no = ? AND is_gst = ?`;
@@ -341,6 +342,9 @@ exports.createTransaction = (req, res) => {
                   req.body.eway_invoice_no ? String(req.body.eway_invoice_no).trim().slice(0, 100) : null,
                   transportChargesVal,
                   additionalChargesVal,
+                  req.body.po_no ? String(req.body.po_no).trim().slice(0, 100) : null,
+                  req.body.po_date || null,
+                  req.body.transport_mode ? String(req.body.transport_mode).trim().slice(0, 100) : "By Road",
                 ],
                 (err, result) => {
                   if (err)
@@ -752,6 +756,9 @@ exports.listTransactions = (req, res) => {
       t.is_gst,
       t.vehicle_no,
       t.eway_invoice_no,
+      t.po_no,
+      t.po_date,
+      t.transport_mode,
       t.transport_charges,
       t.additional_charges,
       c.customer_name,
@@ -1437,6 +1444,9 @@ exports.getTransactionById = (req, res) => {
       t.address,
       t.vehicle_no,
       t.eway_invoice_no,
+      t.po_no,
+      t.po_date,
+      t.transport_mode,
       t.transport_charges,
       t.additional_charges,
       t.bill_to_company_name,
@@ -1654,6 +1664,9 @@ exports.getSalesReceiptById = (req, res) => {
       t.address AS sale_address,
       t.vehicle_no,
       t.eway_invoice_no,
+      t.po_no,
+      t.po_date,
+      t.transport_mode,
       t.transport_charges,
       t.additional_charges,
       t.bill_to_company_name,
@@ -1918,6 +1931,9 @@ exports.getSalesReceiptById = (req, res) => {
           payment_status: h.payment_status || "",
           vehicle_no: h.vehicle_no || "",
           eway_invoice_no: h.eway_invoice_no || "",
+          po_no: h.po_no || "",
+          po_date: h.po_date || null,
+          transport_mode: h.transport_mode || "By Road",
           transport_type: h.transport_type || "",
           transport_charges: Number(h.transport_charges) || 0,
           additional_charges: h.additional_charges || null,
@@ -2360,7 +2376,8 @@ exports.updateTransaction = (req, res) => {
             const updateTransactionSql = `UPDATE transactions SET
             business_id = ?, location_id = ?, status = ?, contact_id = ?, sales_person_id = COALESCE(?, sales_person_id), address = ?, payment_status = ?,
             sales_date = ?, total_before_tax = ?, tax_amount = ?, discount_type = ?, discount_amount = ?, tax_group_id = ?, final_amount = ?, commission_amount = COALESCE(?, commission_amount),
-            bill_to_company_name = ?, bill_to_customer_name = ?, bill_to_phone = ?, bill_to_address = ?, bill_to_gstin = ?, bill_to_state = ?, bill_to_state_code = ?, bill_to_place_of_supply = ?, bill_to_place_of_supply_state_code = ?, vehicle_no = ?, eway_invoice_no = ?, transport_charges = ?, additional_charges = ?
+            bill_to_company_name = ?, bill_to_customer_name = ?, bill_to_phone = ?, bill_to_address = ?, bill_to_gstin = ?, bill_to_state = ?, bill_to_state_code = ?, bill_to_place_of_supply = ?, bill_to_place_of_supply_state_code = ?, vehicle_no = ?, eway_invoice_no = ?, transport_charges = ?, additional_charges = ?,
+            po_no = ?, po_date = ?, transport_mode = ?
             WHERE id = ?`;
 
         db.query(
@@ -2406,6 +2423,9 @@ exports.updateTransaction = (req, res) => {
                 req.body.eway_invoice_no ? String(req.body.eway_invoice_no).trim().slice(0, 100) : null,
                 transportChargesVal,
                 additionalChargesVal,
+                req.body.po_no ? String(req.body.po_no).trim().slice(0, 100) : null,
+                req.body.po_date || null,
+                req.body.transport_mode ? String(req.body.transport_mode).trim().slice(0, 100) : "By Road",
                 id,
               ],
               (errUpdateTx, resultUpdateTx) => {

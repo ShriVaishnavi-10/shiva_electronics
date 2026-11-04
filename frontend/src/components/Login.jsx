@@ -51,7 +51,19 @@ const Login = () => {
           );
         }
 
-        navigate("/index/overview");
+        const roleLower = String(response.data.user?.role_name || response.data.user?.role || "").toLowerCase();
+        const isSales = roleLower.includes("sales") || response.data.user?.role_id === 7;
+        const isCashierUser = response.data.user?.is_cashier || roleLower.includes("cashier") || response.data.user?.role_id === 8;
+
+        if (response.data.redirect) {
+          navigate(response.data.redirect);
+        } else if (isSales) {
+          navigate("/hrms/dashboard");
+        } else if (isCashierUser) {
+          navigate("/index/salesList");
+        } else {
+          navigate("/index/overview");
+        }
       } else {
         toast.error(response.data.message || "Login failed. Please try again.");
       }

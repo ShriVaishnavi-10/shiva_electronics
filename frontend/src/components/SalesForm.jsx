@@ -361,7 +361,7 @@ function AdvanceStateSelect({ value, onChange, error }) {
         >
           <div className="p-2 border-bottom bg-light">
             <div
-              className="d-flex align-items-center bg-white px-2.5 py-1"
+              className="d-flex align-items-center bg-white px-2 py-1"
               style={{ borderRadius: "6px", border: "1px solid #CBD5E1" }}
             >
               <FaSearch className="text-muted me-2" size={12} style={{ opacity: 0.6 }} />
@@ -868,6 +868,16 @@ export default function SalesForm() {
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isNonUser = storedUser.role_name?.toLowerCase().includes("non user") || storedUser.role_id === 6;
 
+  // Strict route guard: Sales Person has NO access to Billing!
+  useEffect(() => {
+    const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
+    const isCashier = storedUser.is_cashier || roleLower.includes("cashier") || storedUser.role_id === 8;
+    const isSalesPerson = (roleLower.includes("sales") || storedUser.role_id === 7) && !isCashier;
+    if (isSalesPerson) {
+      navigate("/hrms/dashboard", { replace: true });
+    }
+  }, [navigate, storedUser]);
+
   const [customerSearch, setCustomerSearch] = useState("");
   const [customers, setCustomers] = useState([]);
   const [showCustomerCard, setShowCustomerCard] = useState(false);
@@ -888,6 +898,9 @@ export default function SalesForm() {
   const [shippingAddress, setShippingAddress] = useState("");
   const [vehicleNo, setVehicleNo] = useState("");
   const [ewayInvoiceNo, setEwayInvoiceNo] = useState("");
+  const [poNo, setPoNo] = useState("");
+  const [poDate, setPoDate] = useState("");
+  const [transportMode, setTransportMode] = useState("By Road");
   const [transportCharges, setTransportCharges] = useState("");
   const [additionalCharges, setAdditionalCharges] = useState([]);
   const [chargeName, setChargeName] = useState("");
@@ -1476,6 +1489,9 @@ export default function SalesForm() {
         }
         setVehicleNo(tx.vehicle_no || "");
         setEwayInvoiceNo(tx.eway_invoice_no || "");
+        setPoNo(tx.po_no || "");
+        setPoDate(tx.po_date ? String(tx.po_date).slice(0, 10) : "");
+        setTransportMode(tx.transport_mode || "By Road");
         setTransportCharges(tx.transport_charges != null && tx.transport_charges !== "" ? String(tx.transport_charges) : "");
         if (tx.additional_charges) {
           try {
@@ -2632,6 +2648,9 @@ export default function SalesForm() {
       address: shippingAddress || null,
       vehicle_no: vehicleNo ? vehicleNo.trim() : null,
       eway_invoice_no: ewayInvoiceNo ? ewayInvoiceNo.trim() : null,
+      po_no: poNo ? poNo.trim() : null,
+      po_date: poDate || null,
+      transport_mode: transportMode ? transportMode.trim() : "By Road",
       transport_charges: Number(transportCharges) || 0,
       additional_charges: additionalCharges.length > 0 ? additionalCharges : null,
       invoice_no: finalInvoiceNo,
@@ -3606,6 +3625,83 @@ export default function SalesForm() {
                       ))}
                     </div>
                   )}
+                </Col>
+              </Row>
+
+              {/* Row 3: Order (P.O.) & Dispatch Details */}
+              <Row className="g-2 g-md-3 align-items-start mt-1">
+                {/* P.O. Number */}
+                <Col xs={6} sm={6} md={3}>
+                  <div className="d-flex align-items-center mb-1" style={{ minHeight: "26px" }}>
+                    <FaFileInvoice size={13} style={{ color: "#D49A00", marginRight: "8px", flexShrink: 0 }} />
+                    <span className="fw-bold text-truncate" style={{ color: "#0F172A", fontSize: "0.88rem" }}>
+                      P.O. Number
+                    </span>
+                  </div>
+                  <Input
+                    bsSize="sm"
+                    value={poNo}
+                    onChange={(e) => setPoNo(e.target.value)}
+                    placeholder="Enter P.O. No."
+                    maxLength={100}
+                    className="fw-semibold px-2 w-100"
+                    style={{
+                      height: "38px",
+                      backgroundColor: "#fff",
+                      border: "1.5px solid #CBD5E1",
+                      borderRadius: "8px",
+                      fontSize: "0.92rem",
+                    }}
+                  />
+                </Col>
+
+                {/* P.O. Date */}
+                <Col xs={6} sm={6} md={3}>
+                  <div className="d-flex align-items-center mb-1" style={{ minHeight: "26px" }}>
+                    <FaCalendarAlt size={13} style={{ color: "#D49A00", marginRight: "8px", flexShrink: 0 }} />
+                    <span className="fw-bold text-truncate" style={{ color: "#0F172A", fontSize: "0.88rem" }}>
+                      P.O. Date
+                    </span>
+                  </div>
+                  <Input
+                    bsSize="sm"
+                    type="date"
+                    value={poDate}
+                    onChange={(e) => setPoDate(e.target.value)}
+                    className="fw-semibold px-2 w-100"
+                    style={{
+                      height: "38px",
+                      backgroundColor: "#fff",
+                      border: "1.5px solid #CBD5E1",
+                      borderRadius: "8px",
+                      fontSize: "0.92rem",
+                    }}
+                  />
+                </Col>
+
+                {/* Transport / Dispatched Thru */}
+                <Col xs={12} sm={6} md={3}>
+                  <div className="d-flex align-items-center mb-1" style={{ minHeight: "26px" }}>
+                    <FaTruck size={13} style={{ color: "#D49A00", marginRight: "8px", flexShrink: 0 }} />
+                    <span className="fw-bold text-truncate" style={{ color: "#0F172A", fontSize: "0.88rem" }}>
+                      Dispatched Thru
+                    </span>
+                  </div>
+                  <Input
+                    bsSize="sm"
+                    value={transportMode}
+                    onChange={(e) => setTransportMode(e.target.value)}
+                    placeholder="e.g. By Road"
+                    maxLength={100}
+                    className="fw-semibold px-2 w-100"
+                    style={{
+                      height: "38px",
+                      backgroundColor: "#fff",
+                      border: "1.5px solid #CBD5E1",
+                      borderRadius: "8px",
+                      fontSize: "0.92rem",
+                    }}
+                  />
                 </Col>
               </Row>
             </CardBody>

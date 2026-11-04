@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const bcrypt = require("bcryptjs");
 
 // -------------------------------------------------------------
 // 1. List All Sales Persons
@@ -6,7 +7,17 @@ const db = require("../config/db");
 exports.listSalesPersons = (req, res) => {
   const { status, branch_id } = req.query;
   let sql = `
-    SELECT sp.*, b.branch_name
+    SELECT sp.*, b.branch_name,
+      COALESCE(
+        (SELECT u.username FROM users u 
+         LEFT JOIN hrms_employees emp ON emp.user_id = u.id 
+         WHERE emp.sales_person_id = sp.id 
+            OR (sp.email IS NOT NULL AND sp.email != '' AND u.email = sp.email)
+            OR u.username = sp.employee_code 
+         LIMIT 1),
+        sp.email,
+        sp.employee_code
+      ) AS login_username
     FROM sales_persons sp
     LEFT JOIN branches b ON sp.branch_id = b.id
     WHERE 1=1
@@ -41,7 +52,17 @@ exports.listSalesPersons = (req, res) => {
 exports.getSalesPersonById = (req, res) => {
   const { id } = req.params;
   const sql = `
-    SELECT sp.*, b.branch_name
+    SELECT sp.*, b.branch_name,
+      COALESCE(
+        (SELECT u.username FROM users u 
+         LEFT JOIN hrms_employees emp ON emp.user_id = u.id 
+         WHERE emp.sales_person_id = sp.id 
+            OR (sp.email IS NOT NULL AND sp.email != '' AND u.email = sp.email)
+            OR u.username = sp.employee_code 
+         LIMIT 1),
+        sp.email,
+        sp.employee_code
+      ) AS login_username
     FROM sales_persons sp
     LEFT JOIN branches b ON sp.branch_id = b.id
     WHERE sp.id = ?
@@ -74,6 +95,11 @@ exports.createSalesPerson = (req, res) => {
     branch_id,
     status = "Active",
     notes,
+    username,
+    login_username,
+    password,
+    login_password,
+    create_login = true,
   } = req.body;
 
   if (!name || !String(name).trim()) {
@@ -86,6 +112,7 @@ exports.createSalesPerson = (req, res) => {
       (employee_code, name, phone, email, commission_type, commission_rate, target_amount, branch_id, status, notes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
+    const effectiveBranch = branch_id ? Number(branch_id) : 2;
     const params = [
       codeToUse,
       String(name).trim(),
@@ -94,20 +121,106 @@ exports.createSalesPerson = (req, res) => {
       commission_type === "fixed" ? "fixed" : "percentage",
       Number(commission_rate) || 0,
       Number(target_amount) || 0,
-      branch_id ? Number(branch_id) : 2,
+      effectiveBranch,
       status === "Inactive" ? "Inactive" : "Active",
       notes ? String(notes).trim() : null,
     ];
 
-    db.query(insertSql, params, (err, result) => {
+    db.query(insertSql, params, async (err, result) => {
       if (err) {
         console.error("createSalesPerson error:", err);
         return res.status(500).json({ success: false, message: err.message || "Failed to create sales person" });
       }
+
+      const salesPersonId = result.insertId;
+      const effectiveUsername = (login_username || username || email || phone || codeToUse || "").trim();
+      const rawPassword = (login_password || password || "123456").trim();
+
+      // Automatically create / link User and HRMS Employee for Personal HRMS Portal access
+      if (create_login && effectiveUsername && rawPassword) {
+        try {
+          const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+          // 1. Insert or update in users table with role 'Sales Person' (role_id 7)
+          db.query(
+            `INSERT INTO users (username, password, full_name, email, phone, role_id, branch_id, status)
+             VALUES (?, ?, ?, ?, ?, 7, ?, ?)
+             ON DUPLICATE KEY UPDATE 
+               password = VALUES(password), 
+               full_name = VALUES(full_name), 
+               email = VALUES(email), 
+               phone = VALUES(phone), 
+               role_id = 7, 
+               status = VALUES(status)`,
+            [
+              effectiveUsername,
+              hashedPassword,
+              String(name).trim(),
+              email ? String(email).trim() : null,
+              phone ? String(phone).trim() : null,
+              effectiveBranch,
+              status === "Inactive" ? "Inactive" : "Active",
+            ],
+            (uErr, uRes) => {
+              const userId = uRes?.insertId;
+
+              // 2. Insert or update in hrms_employees table
+              db.query(
+                `SELECT id FROM hrms_employees 
+                 WHERE sales_person_id = ? 
+                    OR (email = ? AND email IS NOT NULL AND email != '') 
+                    OR (phone = ? AND phone IS NOT NULL AND phone != '') 
+                 LIMIT 1`,
+                [salesPersonId, email || "__none__", phone || "__none__"],
+                (empErr, empRows) => {
+                  if (empRows && empRows.length > 0) {
+                    db.query(
+                      `UPDATE hrms_employees 
+                       SET name = ?, email = ?, phone = ?, sales_person_id = ?, password = ?, user_id = COALESCE(?, user_id), status = ?
+                       WHERE id = ?`,
+                      [
+                        String(name).trim(),
+                        email ? String(email).trim() : null,
+                        phone ? String(phone).trim() : null,
+                        salesPersonId,
+                        hashedPassword,
+                        userId || null,
+                        status === "Inactive" ? "Inactive" : "Active",
+                        empRows[0].id,
+                      ]
+                    );
+                  } else {
+                    db.query(
+                      `INSERT INTO hrms_employees 
+                       (employee_code, name, email, phone, department, designation, branch_id, salary, joining_date, employment_type, status, sales_person_id, user_id, password, pin)
+                       VALUES (?, ?, ?, ?, 'Sales & Billing', 'Sales Executive', ?, 0, CURDATE(), 'Full-Time', ?, ?, ?, ?, '123456')`,
+                      [
+                        codeToUse,
+                        String(name).trim(),
+                        email ? String(email).trim() : null,
+                        phone ? String(phone).trim() : null,
+                        effectiveBranch,
+                        status === "Inactive" ? "Inactive" : "Active",
+                        salesPersonId,
+                        userId || null,
+                        hashedPassword,
+                      ]
+                    );
+                  }
+                }
+              );
+            }
+          );
+        } catch (hErr) {
+          console.error("Seller password hash error:", hErr);
+        }
+      }
+
       res.status(201).json({
         success: true,
-        message: "Sales person created successfully",
-        id: result.insertId,
+        message: "Sales person created successfully with Personal HRMS portal login",
+        id: salesPersonId,
+        employee_code: codeToUse,
       });
     });
   };
@@ -137,7 +250,7 @@ exports.createSalesPerson = (req, res) => {
 // -------------------------------------------------------------
 // 4. Update Sales Person
 // -------------------------------------------------------------
-exports.updateSalesPerson = (req, res) => {
+exports.updateSalesPerson = async (req, res) => {
   const { id } = req.params;
   const {
     name,
@@ -150,12 +263,17 @@ exports.updateSalesPerson = (req, res) => {
     branch_id,
     status = "Active",
     notes,
+    username,
+    login_username,
+    password,
+    login_password,
   } = req.body;
 
   if (!name || !String(name).trim()) {
     return res.status(400).json({ success: false, message: "Sales person name is required" });
   }
 
+  const effectiveBranch = branch_id ? Number(branch_id) : 2;
   const updateSql = `
     UPDATE sales_persons 
     SET employee_code = ?, name = ?, phone = ?, email = ?,
@@ -171,13 +289,13 @@ exports.updateSalesPerson = (req, res) => {
     commission_type === "fixed" ? "fixed" : "percentage",
     Number(commission_rate) || 0,
     Number(target_amount) || 0,
-    branch_id ? Number(branch_id) : 2,
+    effectiveBranch,
     status === "Inactive" ? "Inactive" : "Active",
     notes ? String(notes).trim() : null,
     id,
   ];
 
-  db.query(updateSql, params, (err, result) => {
+  db.query(updateSql, params, async (err, result) => {
     if (err) {
       console.error("updateSalesPerson error:", err);
       return res.status(500).json({ success: false, message: "Failed to update sales person" });
@@ -185,6 +303,66 @@ exports.updateSalesPerson = (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: "Sales person not found" });
     }
+
+    const rawPass = (login_password || password || "").trim();
+    let newHash = null;
+    if (rawPass) {
+      try {
+        newHash = await bcrypt.hash(rawPass, 10);
+      } catch (e) {
+        console.error("Password hash error on seller update:", e);
+      }
+    }
+
+    // Synchronize corresponding users and hrms_employees records
+    const syncData = {
+      name: String(name).trim(),
+      email: email ? String(email).trim() : null,
+      phone: phone ? String(phone).trim() : null,
+      status: status === "Inactive" ? "Inactive" : "Active",
+    };
+    const effectiveUsername = (login_username || username || "").trim();
+
+    if (newHash) {
+      // Update password in hrms_employees
+      db.query(
+        `UPDATE hrms_employees 
+         SET name = ?, email = ?, phone = ?, status = ?, password = ? 
+         WHERE sales_person_id = ? OR (email = ? AND email IS NOT NULL AND email != '')`,
+        [syncData.name, syncData.email, syncData.phone, syncData.status, newHash, id, syncData.email || "__none__"]
+      );
+
+      // Update password and info in users
+      db.query(
+        `UPDATE users u
+         LEFT JOIN hrms_employees e ON e.user_id = u.id
+         SET u.password = ?, u.full_name = ?, u.email = ?, u.phone = ?, u.status = ?
+             ${effectiveUsername ? ", u.username = ?" : ""}
+         WHERE e.sales_person_id = ? OR (u.email = ? AND u.email IS NOT NULL AND u.email != '')`,
+        effectiveUsername
+          ? [newHash, syncData.name, syncData.email, syncData.phone, syncData.status, effectiveUsername, id, syncData.email || "__none__"]
+          : [newHash, syncData.name, syncData.email, syncData.phone, syncData.status, id, syncData.email || "__none__"]
+      );
+    } else {
+      // Update general details without changing password
+      db.query(
+        `UPDATE hrms_employees 
+         SET name = ?, email = ?, phone = ?, status = ? 
+         WHERE sales_person_id = ? OR (email = ? AND email IS NOT NULL AND email != '')`,
+        [syncData.name, syncData.email, syncData.phone, syncData.status, id, syncData.email || "__none__"]
+      );
+
+      if (effectiveUsername) {
+        db.query(
+          `UPDATE users u
+           LEFT JOIN hrms_employees e ON e.user_id = u.id
+           SET u.username = ?, u.full_name = ?, u.email = ?, u.phone = ?, u.status = ?
+           WHERE e.sales_person_id = ? OR (u.email = ? AND u.email IS NOT NULL AND u.email != '')`,
+          [effectiveUsername, syncData.name, syncData.email, syncData.phone, syncData.status, id, syncData.email || "__none__"]
+        );
+      }
+    }
+
     res.json({ success: true, message: "Sales person updated successfully" });
   });
 };

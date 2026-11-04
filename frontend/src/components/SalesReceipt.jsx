@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "reactstrap";
-import { FaPrint, FaDownload, FaArrowLeft } from "react-icons/fa";
+import { FaPrint, FaDownload, FaArrowLeft, FaUniversity, FaFileInvoice, FaShieldAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
+import html2pdf from "html2pdf.js";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import apiClient from "../utils/api";
-import { SERVER_ORIGIN } from "../config/urls";
 import { INDIAN_STATES } from "./BillToModal";
-// import signImg from "../assets/sign.png";
-const signImg = null;
 
 const fmt = (num) => {
   const n = Number(num);
@@ -27,7 +25,7 @@ const formatDate = (iso) => {
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
-  return `${dd}-${mm}-${yyyy}`;
+  return `${dd}/${mm}/${yyyy}`;
 };
 
 function numberToWords(num) {
@@ -120,14 +118,14 @@ export default function SalesReceipt() {
   const branch = receipt?.branch || {};
   const customer = receipt?.customer || {};
   const products = receipt?.products || [];
-  const totals = receipt?.totals || {};
 
   const compName =
     loc.name ||
     biz.name ||
     biz.company_name ||
     branch.name ||
-    "CLAVIS TECH WORKS";
+    "SHIVA ELECTRONICS";
+
   const companyGst =
     loc.gst_no ||
     loc.gst ||
@@ -135,7 +133,7 @@ export default function SalesReceipt() {
     biz.gst ||
     branch.gst_no ||
     receipt?.company_gst_no ||
-    "";
+    "33CAEPS0894N1Z5";
 
   const compAddress =
     loc.address || biz.address
@@ -144,17 +142,16 @@ export default function SalesReceipt() {
         .filter(Boolean)
         .join(", ")
       : [
-        loc.landmark || biz.landmark,
-        loc.city || biz.city,
-        loc.state || biz.state,
-        loc.zip_code || biz.zip_code,
-        branch.address,
+        loc.landmark || biz.landmark || "21-22, Main Bazaar Street",
+        loc.city || biz.city || "Omalur",
+        loc.state || biz.state || "Salem (Dt), Tamil Nadu",
+        loc.zip_code || biz.zip_code || "636455",
       ]
         .filter((v) => v && String(v).trim())
         .join(", ");
 
   const compPhones = [
-    loc.mobile || loc.phone || biz.phone || biz.mobile || branch.phone,
+    loc.mobile || loc.phone || biz.phone || biz.mobile || branch.phone || "9715761234",
     loc.alternate_number || biz.alternate_number,
   ]
     .filter((v) => v && String(v).trim())
@@ -271,14 +268,7 @@ export default function SalesReceipt() {
   const billToState = billTo?.state || customerState || "Tamil Nadu";
   const billToStateCode =
     billTo?.state_code || getStateCode(billToState, billTo?.gstin);
-  const billToPlaceOfSupply =
-    billTo?.place_of_supply || billTo?.state || customerPlaceOfSupply || "Tamil Nadu";
-  const billToPlaceOfSupplyCode =
-    billTo?.place_of_supply_state_code ||
-    getStateCode(billToPlaceOfSupply, billTo?.gstin);
-
   const billedStateDisplay = `${billToState}${billToStateCode ? ` (${billToStateCode})` : ""}`;
-  const billedPosDisplay = `${billToPlaceOfSupply}${billToPlaceOfSupplyCode ? ` (${billToPlaceOfSupplyCode})` : ""}`;
 
   const billedToName =
     customer.name ||
@@ -286,7 +276,7 @@ export default function SalesReceipt() {
     biz.name ||
     biz.company_name ||
     branch.name ||
-    "CLAVIS TECH WORKS";
+    "CASH CUSTOMER";
 
   const billedToAddress = formatCleanAddress(
     receipt?.sale_address ||
@@ -313,32 +303,21 @@ export default function SalesReceipt() {
     companyGst ||
     "-";
 
-  const rawQrImage = loc.images || biz.images || receipt?.business_images || "";
-  let qrImageUrl = "";
-  if (rawQrImage) {
-    const firstImg = String(rawQrImage).split(",")[0].trim();
-    if (firstImg) {
-      if (
-        firstImg.startsWith("http://") ||
-        firstImg.startsWith("https://") ||
-        firstImg.startsWith("data:")
-      ) {
-        qrImageUrl = firstImg;
-      } else {
-        qrImageUrl = `${SERVER_ORIGIN}${firstImg.startsWith("/") ? "" : "/"}${firstImg}`;
-      }
-    }
-  }
+  const sellerStateCode = "33";
+  const buyerStateCode = customerStateCode || "33";
+  const isInterstate = !isNonGstReceipt && buyerStateCode !== sellerStateCode && buyerStateCode !== "33";
 
-  // Calculate totals breakdown for Amount, CGST, SGST, Round off, Total
   let calcTaxable = 0;
   let calcCgst = 0;
   let calcSgst = 0;
+  let calcIgst = 0;
   let totalLineAmount = 0;
   let totalDiscountAmount = 0;
+  let totalQuantity = 0;
 
   const processedProducts = products.map((p, idx) => {
-    const qty = Number(p.qty) || 0;
+    const qty = Number(p.qty || p.quantity) || 0;
+    totalQuantity += qty;
     let gstRate = 0;
     if (p.gst_rate != null && !isNaN(Number(p.gst_rate))) {
       gstRate = Number(p.gst_rate);
@@ -357,40 +336,47 @@ export default function SalesReceipt() {
     }
 
     const mrp = Number(p.mrp || p.rate || 0);
-    // Prefer the saved line total so older rows (saved with the pre-discount unit price) still show the discount
     const lineTotalSaved = Number(p.line_total ?? p.amount);
     const rate =
       qty > 0 && Number.isFinite(lineTotalSaved) && lineTotalSaved > 0
         ? lineTotalSaved / qty
         : Number(p.rate) || 0;
-    const bRate = gstRate > 0 ? mrp / (1 + gstRate / 100) : mrp;
 
-    const isFixedDisc = p.discount_type === "fixed";
     let discPct = 0;
     if (mrp > 0 && rate > 0 && mrp > rate) {
       discPct = ((mrp - rate) / mrp) * 100;
     }
-    const finalDisc = Number(p.discount_amount || p.discount) > 0
-      ? Number(p.discount_amount || p.discount)
-      : (isFixedDisc ? (mrp - rate) : discPct);
-    const discStr = finalDisc > 0
-      ? (isFixedDisc ? `₹${fmt(finalDisc)}` : `${finalDisc.toFixed(2)}%`)
-      : "-";
+    if (p.discount_amount && Number(p.discount_amount) > 0) {
+      if (p.discount_type === "percentage") {
+        discPct = Number(p.discount_amount);
+      } else if (mrp > 0) {
+        discPct = (Number(p.discount_amount) / mrp) * 100;
+      }
+    }
 
-    // Row amount in table: Qty * discounted rate (inclusive of tax)
-    const rowTotal = Number((qty * rate).toFixed(2));
+    // In retail POS, item rate is inclusive of GST
+    const grossTotal = Number((qty * rate).toFixed(2));
+    const taxable = gstRate > 0 ? Number((grossTotal / (1 + gstRate / 100)).toFixed(2)) : grossTotal;
+    const unitTaxableRate = qty > 0 ? Number((taxable / qty).toFixed(2)) : taxable;
 
-    // Tax breakdown extracted from rowTotal
-    const taxable = gstRate > 0 ? rowTotal / (1 + gstRate / 100) : rowTotal;
-    const gstAmt = rowTotal - taxable;
-    const cgstAmt = gstAmt / 2;
-    const sgstAmt = gstAmt / 2;
+    let cgstAmt = 0;
+    let sgstAmt = 0;
+    let igstAmt = 0;
+    if (isInterstate) {
+      igstAmt = gstRate > 0 ? Number((taxable * (gstRate / 100)).toFixed(2)) : 0;
+    } else {
+      const halfRate = gstRate / 2;
+      cgstAmt = halfRate > 0 ? Number((taxable * (halfRate / 100)).toFixed(2)) : 0;
+      sgstAmt = halfRate > 0 ? Number((taxable * (halfRate / 100)).toFixed(2)) : 0;
+    }
+    const rowTotal = Number((taxable + cgstAmt + sgstAmt + igstAmt).toFixed(2));
 
     const discountValue = mrp > rate ? (mrp - rate) * qty : 0;
 
     calcTaxable += taxable;
     calcCgst += cgstAmt;
     calcSgst += sgstAmt;
+    calcIgst += igstAmt;
     totalLineAmount += rowTotal;
     totalDiscountAmount += discountValue;
 
@@ -398,15 +384,17 @@ export default function SalesReceipt() {
       ...p,
       idx: idx + 1,
       qty,
+      unit: p.primary_unit || p.unit || "NOS",
+      hsncode: p.hsncode || "-",
       gstRate,
       taxable,
-      gstAmt,
+      unitTaxableRate,
       cgstAmt,
       sgstAmt,
+      igstAmt,
       rate,
       mrp,
-      bRate,
-      discStr,
+      discPct,
       rowTotal,
     };
   });
@@ -428,9 +416,10 @@ export default function SalesReceipt() {
   const finalAmount = calcTaxable;
   const finalCgst = calcCgst;
   const finalSgst = calcSgst;
+  const finalIgst = calcIgst;
   const grandTotal = Math.round(totalLineAmount + totalExtraCharges);
   const roundOff = Number(
-    (grandTotal - (finalAmount + finalCgst + finalSgst + totalExtraCharges)).toFixed(2),
+    (grandTotal - (finalAmount + finalCgst + finalSgst + finalIgst + totalExtraCharges)).toFixed(2),
   );
 
   const allPayments = Array.isArray(receipt?.payments) ? receipt.payments : [];
@@ -449,8 +438,6 @@ export default function SalesReceipt() {
   );
 
   let advancePayment = null;
-  let subsequentPayments = [];
-
   if (validPayments.length > 0) {
     const firstPay = validPayments[0];
     const isExplicitAdvance = String(firstPay.payment_for || "")
@@ -462,49 +449,94 @@ export default function SalesReceipt() {
       validPayments.length > 1
     ) {
       advancePayment = firstPay;
-      subsequentPayments = validPayments.slice(1);
-    } else {
-      advancePayment = null;
-      subsequentPayments = validPayments;
     }
   }
 
   const advancePaid = advancePayment ? Number(advancePayment.amount || 0) : 0;
-  const balanceAfterAdvance = advancePayment
-    ? Math.max(0, Number((grandTotal - advancePaid).toFixed(2)))
-    : null;
 
-  const grandTotalVal = Number(grandTotal || 0).toFixed(2);
-  const rawBaseUpi =
-    loc.upi_base_url ||
-    receipt?.upi_base_url ||
-    "";
+  // Group GST by slab
+  const gstBreakdownMap = {};
+  processedProducts.forEach((p) => {
+    const rateKey = p.gstRate || 0;
+    if (!gstBreakdownMap[rateKey]) {
+      gstBreakdownMap[rateKey] = {
+        rate: rateKey,
+        taxable: 0,
+        cgst: 0,
+        sgst: 0,
+        igst: 0,
+      };
+    }
+    gstBreakdownMap[rateKey].taxable += p.taxable;
+    gstBreakdownMap[rateKey].cgst += p.cgstAmt;
+    gstBreakdownMap[rateKey].sgst += p.sgstAmt;
+    gstBreakdownMap[rateKey].igst += p.igstAmt;
+  });
 
-  let upiPaymentUrl = "";
-  if (rawBaseUpi) {
-    const cleanUrl = rawBaseUpi
-      .replace(/[?&]am=[^&]*/g, "")
-      .replace(/[?&]cu=[^&]*/g, "")
-      .replace(/[?&]tn=[^&]*/g, "");
-    const sep = cleanUrl.includes("?") ? "&" : "?";
-    upiPaymentUrl = `${cleanUrl}${sep}am=${grandTotalVal}&cu=INR&tn=${encodeURIComponent(
-      `Invoice ${receipt?.invoice_no || id}`
-    )}`;
-  }
+  const breakdownParts = Object.values(gstBreakdownMap)
+    .filter((b) => b.rate > 0)
+    .map((b) => {
+      if (isInterstate) {
+        return `GST ${b.rate}% on (${fmt(b.taxable)}) - IGST ${b.rate.toFixed(2)}%- ${fmt(b.igst)}`;
+      }
+      const half = (b.rate / 2).toFixed(2);
+      return `GST ${b.rate}% on (${fmt(b.taxable)}) - SGST ${half}%- ${fmt(b.sgst)} - CGST ${half}%- ${fmt(b.cgst)}`;
+    });
+  const gstBreakdownText = breakdownParts.length > 0 ? breakdownParts.join(" | ") : "-";
+
+  const invoiceNo = receipt?.invoice_no || `NON-SAL-${receipt?.id || id}`;
+  const invoiceDate = receipt?.date ? formatDate(receipt.date) : formatDate(new Date().toISOString());
+  const transportMode = receipt?.transport_mode || (receipt?.vehicle_no ? "By Road" : "By Road");
+  const poNoAndDate = receipt?.po_no ? `${receipt.po_no} ${receipt.po_date ? `& ${formatDate(receipt.po_date)}` : ""}` : "-";
+  const vehicleNumber = receipt?.vehicle_no || "-";
+  const placeOfSupplyText = customerPosDisplay || `${customerState} [${customerStateCode || "33"}]`;
+  const ewayBillNoText = receipt?.eway_invoice_no || receipt?.eway_bill_no || "-";
+
+  const [downloading, setDownloading] = useState(false);
 
   const handlePrint = () => {
     toast.dismiss();
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   const handleDownload = async () => {
     const input = document.getElementById("printable-invoice");
-    if (!input) return;
-    const canvas = await html2canvas(input, { scale: 3, useCORS: true });
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
-    pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
-    pdf.save(`Invoice_${receipt?.invoice_no || id}.pdf`);
+    if (!input) {
+      toast.error("Invoice element not found");
+      return;
+    }
+    setDownloading(true);
+    toast.info("Generating 1-page A4 PDF, please wait...", { autoClose: 2000 });
+
+    const filename = `Invoice_${receipt?.invoice_no || id}.pdf`;
+
+    try {
+      const canvas = await html2canvas(input, {
+        scale: 2.5,
+        useCORS: true,
+        backgroundColor: "#FFFFFF",
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      // Exactly 1 page: maps the entire canvas onto the 210mm x 297mm A4 sheet
+      pdf.addImage(imgData, "JPEG", 0, 0, 210, 297, undefined, "FAST");
+      pdf.save(filename);
+      toast.success("1-page Invoice PDF downloaded successfully!");
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      toast.error("Failed to generate PDF. You can also click 'Print A4 Invoice' and select 'Save as PDF'.");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   if (loading)
@@ -524,761 +556,662 @@ export default function SalesReceipt() {
     );
 
   return (
-    <div className="receipt-page bg-light min-vh-100 py-4">
+    <div className="receipt-page min-vh-100 py-3">
       <style>
         {`
           @media print {
-            @page { size: A4 portrait; margin: 0 !important; }
-            html, body, #root, .layout, .body-wrapper, .content-area, .bg-light, .receipt-page {
-              height: auto !important;
-              min-height: 0 !important;
-              overflow: visible !important;
+            @page {
+              size: A4 portrait;
               margin: 0 !important;
-              padding: 0 !important;
-              background-color: white !important;
-              position: static !important;
-              display: block !important;
             }
-            body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: white !important; }
-            .app-header, .sidebar, .desktop-sidebar, .footer, .no-print {
+            /* Completely hide all surrounding CRM navigation, sidebar, headers, footers & action buttons */
+            header, nav, aside, footer, .app-header, .sidebar, .desktop-sidebar, .footer, .no-print, button, .navbar, .main-header, .main-sidebar, .toast-container {
               display: none !important;
             }
-            .printable-invoice {
+            html, body, #root, .layout, .body-wrapper, .content-area, .receipt-page {
+              background: #FFFFFF !important;
+              margin: 0 !important;
+              padding: 0 !important;
               width: 210mm !important;
               height: 296mm !important;
-              margin: 0 auto !important;
-              padding: 10mm !important;
+              max-height: 296mm !important;
               overflow: hidden !important;
-              background-color: white !important;
-              box-sizing: border-box !important;
-              font-family: 'Arial', sans-serif !important;
-              border: none !important;
-              position: relative !important;
+              display: block !important;
+            }
+            body {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .printable-invoice {
               box-shadow: none !important;
+              margin: 0 auto !important;
+              width: 210mm !important;
+              height: 296mm !important;
+              max-height: 296mm !important;
+              padding: 4mm 6mm !important;
+              border: none !important;
+              box-sizing: border-box !important;
+              page-break-after: avoid !important;
+              page-break-inside: avoid !important;
+              break-after: avoid !important;
+              break-inside: avoid !important;
+              display: block !important;
             }
           }
+
           .receipt-page {
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-color: #f1f5f9;
-            min-height: 100vh;
+            background-color: #E2E8F0;
+            font-family: Arial, Helvetica, sans-serif;
           }
+
+          /* TRUE EXACT A4 SHEET DIMENSIONS (210mm x 297mm) */
           .printable-invoice {
-            font-family: 'Arial', sans-serif;
-            color: black;
-            font-size: 12px;
-            line-height: 1.2;
             width: 210mm;
             height: 297mm;
-            padding: 10mm;
-            background: white;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            margin: 20px auto;
-            box-sizing: border-box;
+            min-height: 297mm;
+            max-height: 297mm;
+            background: #FFFFFF;
+            padding: 5mm 7mm;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             position: relative;
+            box-sizing: border-box;
+            color: #000000;
+            display: flex;
+            flex-direction: column;
+            margin: 15px auto;
             overflow: hidden;
           }
-          .d-flex { display: flex !important; }
-          .flex-column { flex-direction: column !important; }
-          .align-items-center { align-items: center !important; }
-          .justify-content-center { justify-content: center !important; }
-          .justify-content-between { justify-content: space-between !important; }
-          .flex-grow-1 { flex-grow: 1 !important; }
-          .w-50 { width: 50% !important; }
-          .w-25 { width: 25% !important; }
-          .border-black { border: 1px solid black !important; }
-          .border-bottom-black { border-bottom: 1px solid black !important; }
-          .border-top-black { border-top: 1px solid black !important; }
-          .border-end-black { border-right: 1px solid black !important; }
-          .border-start-black { border-left: 1px solid black !important; }
-          .table-invoice { width: 100%; border-collapse: collapse; }
-          .table-invoice th, .table-invoice td { border: 1px solid black; padding: 4px 2px; text-align: center; font-size: 11px; }
-          .table-invoice th { font-weight: normal; }
-          .table-invoice thead th {
-            background: #0B535E;
-            color: #fff;
-            font-weight: 600;
-            font-size: 10.5px;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            border-color: #0B535E;
+
+          /* Full Outer Frame Matching Screenshot Exactly */
+          .invoice-frame {
+            border: 1.5px solid #000000;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            position: relative;
+            background: #FFFFFF;
           }
-          .table-invoice tbody tr:nth-child(even) td { background: #f8fafc; }
-          .table-invoice tbody tr td { font-variant-numeric: tabular-nums; }
-          .invoice-title {
-            display: inline-block;
-            align-self: center;
-            padding: 3px 18px;
-            border: 1.5px solid #0B535E;
-            border-radius: 4px;
-            color: #0B535E;
+
+          /* Watermark Centered in Table Area */
+          .invoice-watermark {
+            position: absolute;
+            top: 52%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 420px;
+            height: 420px;
+            border-radius: 50% !important;
+            -webkit-clip-path: circle(50% at 50% 50%) !important;
+            clip-path: circle(50% at 50% 50%) !important;
+            overflow: hidden !important;
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .invoice-watermark img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50% !important;
+          }
+
+          /* Header Logo on Left */
+          .header-left-logo {
+            width: 78px;
+            height: 78px;
+            border-radius: 50%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            border: 1px solid #E2E8F0;
+          }
+
+          .header-left-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+          }
+
+          /* Meta Table Grid */
+          .meta-info-table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+
+          .meta-info-table td {
+            padding: 2px 4px;
+            font-size: 9.5px;
+            line-height: 1.3;
+            vertical-align: top;
+          }
+
+          /* Main Goods Table */
+          .goods-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: transparent;
+            position: relative;
+            z-index: 1;
+          }
+
+          .goods-table th {
+            border-top: 1.5px solid #000000;
+            border-bottom: 1.5px solid #000000;
+            border-right: 1px solid #000000;
+            background: #FFFFFF;
+            font-size: 9px;
             font-weight: 700;
-            font-size: 12px;
-            letter-spacing: 0.18em;
+            padding: 3px 4px;
+            text-align: center;
           }
-          .invoice-meta-bar { flex-wrap: wrap; gap: 4px 16px; background: #eef6f7 !important; }
-          .invoice-meta-bar strong { color: #0B535E; }
-          .party-heading {
-            color: #0B535E;
-            font-weight: 700;
-            font-size: 10px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            border-bottom: 1px solid #cbd5e1;
-            padding-bottom: 2px;
-            margin-bottom: 4px !important;
+
+          .goods-table th:last-child {
+            border-right: none;
           }
-          .grand-total-row { background: #0B535E !important; color: #fff !important; }
-          .text-xxs { font-size: 9px; }
-          .fw-bold { font-weight: bold; }
-          .mb-1 { margin-bottom: 0.25rem; }
-          .mt-1 { margin-top: 0.25rem; }
-          .mt-3 { margin-top: 1rem; }
-          .p-1 { padding: 0.25rem; }
-          .p-2 { padding: 0.5rem; }
-          .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
-          .text-center { text-align: center; }
-          .text-end { text-align: right; }
-          .text-start { text-align: left; }
-          .text-decoration-underline { text-decoration: underline; }
-          .text-muted { color: #6c757d; }
-          .img-fluid { max-width: 100%; height: auto; }
-          .mx-auto { margin-left: auto; margin-right: auto; }
-          .mt-auto { margin-top: auto; }
-          @media print {
-            .no-print { display: none !important; }
+
+          .goods-table td {
+            border-right: 1px solid #000000;
+            padding: 2.5px 4px;
+            font-size: 8.8px;
+            vertical-align: top;
+            background: transparent;
+          }
+
+          .goods-table td:last-child {
+            border-right: none;
           }
         `}
       </style>
 
-      <div className="no-print container mb-4 d-flex justify-content-between align-items-center">
-        <Button color="secondary" outline onClick={handleBack}>
+      {/* Action Bar (Top Screen) */}
+      <div className="no-print container mb-3 d-flex justify-content-between align-items-center" style={{ maxWidth: "210mm" }}>
+        <Button color="secondary" outline size="sm" onClick={handleBack} className="fw-semibold">
           <FaArrowLeft className="me-1" /> Back
         </Button>
         <div className="d-flex gap-2">
-          <Button color="primary" onClick={handlePrint}>
-            <FaPrint className="me-1" /> Print
+          <Button color="primary" size="sm" onClick={handlePrint} className="fw-semibold shadow-sm">
+            <FaPrint className="me-1" /> Print A4 Invoice
           </Button>
-          <Button color="success" onClick={handleDownload}>
-            <FaDownload className="me-1" /> Download PDF
+          <Button
+            color="success"
+            size="sm"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="fw-semibold shadow-sm"
+          >
+            <FaDownload className="me-1" /> {downloading ? "Generating PDF..." : "Download A4 PDF"}
           </Button>
         </div>
       </div>
 
+      {/* Standard A4 Sheet Container */}
       <div id="printable-invoice" className="printable-invoice">
-        {/* CANCELLED WATERMARK */}
-        {String(receipt?.status || "").toLowerCase() === "cancelled" && (
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%) rotate(-30deg)",
-              fontSize: "72px",
-              fontWeight: "900",
-              color: "rgba(220, 38, 38, 0.22)",
-              textTransform: "uppercase",
-              letterSpacing: "0.22em",
-              border: "8px dashed rgba(220, 38, 38, 0.32)",
-              padding: "16px 44px",
-              borderRadius: "16px",
-              zIndex: 99,
-              pointerEvents: "none",
-              userSelect: "none",
-              whiteSpace: "nowrap",
-            }}
-          >
-            CANCELLED
+        <div className="invoice-frame">
+          {/* ============================================================== */}
+          {/* 1. ROUNDED WATERMARK (Centered behind table vertical lines)    */}
+          {/* ============================================================== */}
+          <div className="invoice-watermark">
+            <img src="/shiva_logo.png" alt="Shiva Electronics Watermark" />
           </div>
-        )}
 
-        <div className="border-black d-flex flex-column h-100 position-relative">
-          {/* CANCELLED TOP BANNER */}
-          {String(receipt?.status || "").toLowerCase() === "cancelled" && (
-            <div
-              className="w-100 text-center py-1 fw-bold border-bottom-black"
-              style={{
-                backgroundColor: "#FEE2E2",
-                color: "#DC2626",
-                fontSize: "12px",
-                letterSpacing: "2px",
-              }}
-            >
-              *** INVOICE CANCELLED ***
-              {validPayments.some(
-                (p) =>
-                  Number(p.amount) < 0 ||
-                  String(p.payment_for || "").toLowerCase().includes("refund")
-              ) && <span className="ms-2">(ADVANCE REFUNDED)</span>}
+          {/* ============================================================== */}
+          {/* 2. TOP HEADER: LOGO (Left) | DETAILS (Center) | QR (Right)     */}
+          {/* ============================================================== */}
+          <div
+            className="d-flex align-items-center justify-content-between p-2"
+            style={{ borderBottom: "1.5px solid #000000", minHeight: "92px", position: "relative", zIndex: 1 }}
+          >
+            {/* Left: Rounded Logo */}
+            <div className="header-left-logo">
+              <img src="/shiva_logo.png" alt="Shiva Electronics" />
             </div>
-          )}
 
-          {/* Top Header */}
-          <div className="d-flex border-bottom-black">
-            <div
-              style={{ width: "150px" }}
-              className="border-end-black d-flex align-items-center justify-content-center p-2"
-            >
-              <img
-                src="/logo.png"
-                alt="Logo"
-                className="img-fluid"
-                style={{ maxHeight: "100px", mixBlendMode: "multiply" }}
-              />
-            </div>
-            <div className="flex-grow-1 text-center p-2 d-flex flex-column justify-content-center">
-              <div className="invoice-title mb-1">
-                {isNonGstReceipt ? "BILL / ESTIMATE" : "TAX INVOICE"}
+            {/* Center: Title & Company Info */}
+            <div className="text-center flex-grow-1 px-3">
+              <div className="fw-bold" style={{ fontSize: "11px", letterSpacing: "1px" }}>
+                {isNonGstReceipt ? "BILL OF SUPPLY" : "TAX INVOICE"}
               </div>
-              <h3
-                className="mb-1"
-                style={{ fontSize: "22px", letterSpacing: "1px", fontWeight: 800, color: "#0B535E" }}
+              <h2
+                className="mb-0 fw-bold"
+                style={{
+                  fontSize: "22px",
+                  letterSpacing: "0.5px",
+                  margin: "1px 0",
+                  color: "#000000",
+                  fontWeight: 900,
+                }}
               >
                 {compName.toUpperCase()}
-              </h3>
-              {compAddress && (
-                <div style={{ fontSize: "12px" }}>{compAddress}</div>
-              )}
-              {!isNonGstReceipt && companyGst && (
-                <div
-                  className="fw-bold mt-1 mb-1"
-                  style={{ fontSize: "12px", letterSpacing: "0.5px" }}
-                >
-                  GSTIN : {companyGst}
-                </div>
-              )}
-              {compPhones && (
-                <div style={{ fontSize: "11px", fontStyle: "italic" }}>
-                  Phone : {compPhones}
-                  {compEmail ? ` | Email : ${compEmail}` : ""}
-                </div>
-              )}
+              </h2>
+              <div style={{ fontSize: "9.5px", color: "#222222", lineHeight: "1.25" }}>
+                {compAddress}
+              </div>
+              <div
+                className="d-flex align-items-center justify-content-center gap-3 mt-0.5"
+                style={{ fontSize: "9.5px" }}
+              >
+                <span>📞 Mobile: <strong>{compPhones}</strong></span>
+                <span>✉️ Email: <strong>{compEmail || "shivaelectronics@gmail.com"}</strong></span>
+              </div>
             </div>
+
+            {/* Right: Spacer to keep company details centered with left logo */}
+            <div style={{ width: "78px" }}></div>
           </div>
 
-          {/* Invoice Details Bar */}
+          {/* ============================================================== */}
+          {/* 3. METADATA 2-COLUMN SECTION                                   */}
+          {/* ============================================================== */}
           <div
-            className="d-flex border-bottom-black align-items-center justify-content-between px-2 py-1 invoice-meta-bar"
-            style={{ fontSize: "11px" }}
+            className="d-flex"
+            style={{ borderBottom: "1.5px solid #000000", fontSize: "9.5px", position: "relative", zIndex: 1 }}
           >
-            <div>
-              <strong>Invoice No : </strong>
-              <span>{receipt.invoice_no || "-"}</span>
-            </div>
-            <div>
-              <strong>Dated : </strong>
-              <span>{formatDate(receipt.date)}</span>
-            </div>
-            <div>
-              <strong>Place of Supply : </strong>
-              <span>
-                {hasBillTo && billTo?.place_of_supply
-                  ? `${billTo.place_of_supply}${billTo.place_of_supply_state_code ? ` (${billTo.place_of_supply_state_code})` : ""}`
-                  : (receipt.place_of_supply || loc.state || branch.state || "Tamil Nadu")}
-              </span>
-            </div>
-            {receipt.vehicle_no ? (
-              <div>
-                <strong>Vehicle No : </strong>
-                <span>{receipt.vehicle_no}</span>
-              </div>
-            ) : null}
-            {receipt.eway_invoice_no ? (
-              <div>
-                <strong>E-Way Invoice No : </strong>
-                <span>{receipt.eway_invoice_no}</span>
-              </div>
-            ) : null}
-            {receipt.eway_bill_no ? (
-              <div>
-                <strong>E-Way Bill No : </strong>
-                <span>{receipt.eway_bill_no}</span>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Billed To & Shipped To */}
-          <div className="d-flex border-bottom-black">
-            {/* Left side: Billed To */}
-            <div
-              className="w-50 border-end-black p-2 d-flex flex-column justify-content-between"
-              style={{ fontSize: "11px", lineHeight: "1.4" }}
-            >
-              <div>
-                <div className="party-heading">Billed To</div>
-                {hasBillTo ? (
-                  <>
-                    {billTo.company_name && (
-                      <div className="fw-bold" style={{ fontSize: "12px" }}>
-                        {billTo.company_name.toUpperCase()}
-                      </div>
-                    )}
-                    {billTo.customer_name && (
-                      <div
-                        className={billTo.company_name ? "fw-semibold" : "fw-bold"}
-                        style={{ fontSize: billTo.company_name ? "11px" : "12px" }}
-                      >
-                        {billTo.company_name
-                          ? `Attn / Name: ${billTo.customer_name}`
-                          : billTo.customer_name.toUpperCase()}
-                      </div>
-                    )}
-                    <div style={{ marginTop: "2px" }}>
-                      {formatCleanAddress(billTo.address)}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="fw-bold" style={{ fontSize: "12px" }}>
-                      {billedToName.toUpperCase()}
-                    </div>
-                    <div style={{ marginTop: "2px" }}>
-                      {billedToAddress}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="pt-2">
-                <div className="d-flex">
-                  <span style={{ width: "95px", display: "inline-block" }}>Mobile</span>
-                  <span>: &nbsp;{hasBillTo ? (billTo.phone || "-") : billedToPhone}</span>
-                </div>
-                {!isNonGstReceipt && (
-                  <div className="d-flex">
-                    <span style={{ width: "95px", display: "inline-block" }}>GSTIN</span>
-                    <span>: &nbsp;{hasBillTo ? (billTo.gstin || "-") : billedToGst}</span>
-                  </div>
-                )}
-                <div className="d-flex">
-                  <span style={{ width: "95px", display: "inline-block" }}>State</span>
-                  <span>: &nbsp;{hasBillTo ? billedStateDisplay : customerStateDisplay}</span>
-                </div>
-                <div className="d-flex">
-                  <span style={{ width: "95px", display: "inline-block" }}>Place of Supply</span>
-                  <span>: &nbsp;{hasBillTo ? billedPosDisplay : customerPosDisplay}</span>
-                </div>
-              </div>
+            {/* Left Column */}
+            <div className="p-1.5" style={{ width: "50%", borderRight: "1px solid #000000" }}>
+              <table className="meta-info-table">
+                <tbody>
+                  <tr>
+                    <td style={{ width: "95px", fontWeight: "600" }}>Invoice No.</td>
+                    <td style={{ width: "10px" }}>:</td>
+                    <td className="fw-bold">{invoiceNo}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "600" }}>Invoice Date</td>
+                    <td>:</td>
+                    <td className="fw-bold">{invoiceDate}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "600" }}>GSTIN</td>
+                    <td>:</td>
+                    <td className="fw-bold">{companyGst}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "600" }}>State</td>
+                    <td>:</td>
+                    <td>{customerState}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "600" }}>State Code</td>
+                    <td>:</td>
+                    <td>{customerStateCode || "33"}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
-            {/* Right side: Shipped To (Sales customer address fetch to shipped to) */}
-            <div
-              className="w-50 p-2 d-flex flex-column justify-content-between"
-              style={{ fontSize: "11px", lineHeight: "1.4" }}
-            >
-              <div>
-                <div className="party-heading">Shipped To</div>
-                <div className="fw-bold" style={{ fontSize: "12px" }}>
-                  {shippedToName.toUpperCase()}
-                </div>
-                <div style={{ marginTop: "2px" }}>
-                  {shippedToAddress}
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <div className="d-flex">
-                  <span style={{ width: "95px", display: "inline-block" }}>Mobile</span>
-                  <span>
-                    : &nbsp;{shippedToPhone}{shippedToAlternate}
-                  </span>
-                </div>
-                {!isNonGstReceipt && (
-                  <div className="d-flex">
-                    <span style={{ width: "95px", display: "inline-block" }}>GSTIN</span>
-                    <span>: &nbsp;{shippedToGst}</span>
-                  </div>
-                )}
-                <div className="d-flex">
-                  <span style={{ width: "95px", display: "inline-block" }}>State</span>
-                  <span>: &nbsp;{customerStateDisplay}</span>
-                </div>
-                <div className="d-flex">
-                  <span style={{ width: "95px", display: "inline-block" }}>Place of Supply</span>
-                  <span>: &nbsp;{customerPosDisplay}</span>
-                </div>
-              </div>
+            {/* Right Column */}
+            <div className="p-1.5" style={{ width: "50%" }}>
+              <table className="meta-info-table">
+                <tbody>
+                  <tr>
+                    <td style={{ width: "105px", fontWeight: "600" }}>Transport Mode</td>
+                    <td style={{ width: "10px" }}>:</td>
+                    <td>{transportMode}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "600" }}>PO No &amp; Date</td>
+                    <td>:</td>
+                    <td>{poNoAndDate}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "600" }}>Vehicle Number</td>
+                    <td>:</td>
+                    <td>{vehicleNumber}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "600" }}>Place of Supply</td>
+                    <td>:</td>
+                    <td>{placeOfSupplyText}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "600" }}>Eway Bill No</td>
+                    <td>:</td>
+                    <td>{ewayBillNoText}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
-          {/* Table */}
-          <div className="flex-grow-1 border-bottom-black d-flex flex-column">
-            <table
-              className="table-invoice"
+          {/* ============================================================== */}
+          {/* 4. RECEIVER & CONSIGNEE SECTION                                */}
+          {/* ============================================================== */}
+          <div style={{ borderBottom: "1.5px solid #000000", position: "relative", zIndex: 1 }}>
+            {/* Header Titles */}
+            <div
+              className="d-flex"
               style={{
-                border: "none",
-                borderBottom: "none",
-                width: "100%",
-                flexGrow: 1,
+                borderBottom: "1px solid #000000",
+                fontSize: "9.5px",
+                fontWeight: "700",
+                background: "#F8FAFC",
               }}
             >
+              <div className="px-2 py-0.5 text-center" style={{ width: "50%", borderRight: "1px solid #000000" }}>
+                Details of Receiver | Billed to:
+              </div>
+              <div className="px-2 py-0.5 text-center" style={{ width: "50%" }}>
+                Details of Consignee | Shipped to:
+              </div>
+            </div>
+
+            {/* Details Content */}
+            <div className="d-flex" style={{ fontSize: "9.5px" }}>
+              {/* Receiver (Billed to) */}
+              <div className="p-2" style={{ width: "50%", borderRight: "1px solid #000000", lineHeight: "1.3" }}>
+                <div className="fw-bold text-dark">
+                  {hasBillTo
+                    ? (billTo.company_name || billTo.customer_name).toUpperCase()
+                    : billedToName.toUpperCase()}
+                </div>
+                <div>{hasBillTo ? formatCleanAddress(billTo.address) : billedToAddress}</div>
+                <div>{customerState}</div>
+                <div className="fw-bold mt-1">
+                  GSTIN : {hasBillTo ? (billTo.gstin || "-") : billedToGst}
+                </div>
+              </div>
+
+              {/* Consignee (Shipped to) */}
+              <div className="p-2" style={{ width: "50%", lineHeight: "1.3" }}>
+                <div className="fw-bold text-dark">{shippedToName.toUpperCase()}</div>
+                <div>{shippedToAddress}</div>
+                <div>{customerState}</div>
+                <div className="fw-bold mt-1">
+                  GSTIN : {shippedToGst}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ============================================================== */}
+          {/* 5. GOODS TABLE WITH EXTENDED VERTICAL LINES                    */}
+          {/* ============================================================== */}
+          <div className="flex-grow-1 d-flex flex-column" style={{ minHeight: "220px", position: "relative" }}>
+            <table className="goods-table" style={{ height: "100%" }}>
               <thead>
-                <tr style={{ height: "30px" }}>
-                  <th
-                    style={{
-                      width: "42px",
-                      borderLeft: "none",
-                      borderTop: "none",
-                    }}
-                  >
-                    S.No
-                  </th>
-                  <th style={{ borderTop: "none", textAlign: "left", paddingLeft: "8px" }}>
-                    Description
-                  </th>
-                  <th style={{ width: "55px", borderTop: "none" }}>
-                    Qty
-                  </th>
-                  <th style={{ width: "85px", borderTop: "none", textAlign: "right", paddingRight: "8px" }}>
-                    Rate
-                  </th>
-                  <th style={{ width: "75px", borderTop: "none" }}>
-                    Discount
-                  </th>
-                  {!isNonGstReceipt && (
-                    <th style={{ width: "65px", borderTop: "none" }}>
-                      Tax
-                    </th>
+                <tr>
+                  <th style={{ width: "32px" }}>No</th>
+                  <th style={{ width: "65px" }}>HSN Code</th>
+                  <th style={{ textAlign: "left", paddingLeft: "6px" }}>Item Description</th>
+                  <th style={{ width: "48px" }}>Qty</th>
+                  <th style={{ width: "68px", textAlign: "right", paddingRight: "6px" }}>Rate</th>
+                  <th style={{ width: "45px", textAlign: "right", paddingRight: "6px" }}>Disc.%</th>
+                  <th style={{ width: "45px", textAlign: "right", paddingRight: "6px" }}>GST %</th>
+                  {isInterstate ? (
+                    <th style={{ width: "65px", textAlign: "right", paddingRight: "6px" }}>IGST amt</th>
+                  ) : (
+                    <>
+                      <th style={{ width: "58px", textAlign: "right", paddingRight: "6px" }}>SGST Amt</th>
+                      <th style={{ width: "58px", textAlign: "right", paddingRight: "6px" }}>CGST amt</th>
+                    </>
                   )}
-                  <th
-                    style={{
-                      width: "95px",
-                      borderRight: "none",
-                      borderTop: "none",
-                      textAlign: "right",
-                      paddingRight: "8px",
-                    }}
-                  >
-                    Amount
-                  </th>
+                  <th style={{ width: "75px", textAlign: "right", paddingRight: "6px" }}>Amount (Rs)</th>
                 </tr>
               </thead>
-              <tbody style={{ verticalAlign: "top" }}>
+              <tbody>
                 {processedProducts.map((p) => (
-                  <tr key={p.idx} style={{ height: "22px" }}>
-                    <td style={{ borderLeft: "none", borderBottom: "none" }}>
-                      {p.idx}.
-                    </td>
-                    <td
-                      className="text-start px-2"
-                      style={{ borderBottom: "none" }}
-                    >
+                  <tr key={p.idx} style={{ height: "24px" }}>
+                    <td style={{ textAlign: "center" }}>{p.idx}</td>
+                    <td style={{ textAlign: "center", fontSize: "9px" }}>{p.hsncode}</td>
+                    <td style={{ textAlign: "left", paddingLeft: "6px", fontWeight: "600" }}>
                       {p.product_name}
                     </td>
-                    <td style={{ borderBottom: "none" }}>{p.qty}</td>
-                    <td
-                      className="text-end px-2"
-                      style={{ borderBottom: "none" }}
-                    >
-                      {fmt(p.mrp || p.rate)}
+                    <td style={{ textAlign: "center" }}>
+                      <div className="fw-bold" style={{ lineHeight: "1.1" }}>{p.qty}</div>
+                      <div style={{ fontSize: "8px", color: "#444", lineHeight: "1" }}>{p.unit || "NOS"}</div>
                     </td>
-                    <td style={{ borderBottom: "none" }}>
-                      {p.discStr}
+                    <td style={{ textAlign: "right", paddingRight: "6px" }}>
+                      {fmt(p.unitTaxableRate || p.rate)}
                     </td>
-                    {!isNonGstReceipt && (
-                      <td style={{ borderBottom: "none" }}>
-                        {p.gstRate > 0 ? `${p.gstRate}%` : "-"}
+                    <td style={{ textAlign: "right", paddingRight: "6px" }}>
+                      {p.discPct ? p.discPct.toFixed(2) : "0.00"}
+                    </td>
+                    <td style={{ textAlign: "right", paddingRight: "6px" }}>
+                      {p.gstRate ? p.gstRate.toFixed(2) : "0.00"}
+                    </td>
+                    {isInterstate ? (
+                      <td style={{ textAlign: "right", paddingRight: "6px" }}>
+                        {fmt(p.igstAmt)}
                       </td>
+                    ) : (
+                      <>
+                        <td style={{ textAlign: "right", paddingRight: "6px" }}>
+                          {fmt(p.sgstAmt)}
+                        </td>
+                        <td style={{ textAlign: "right", paddingRight: "6px" }}>
+                          {fmt(p.cgstAmt)}
+                        </td>
+                      </>
                     )}
-                    <td
-                      className="text-end px-2"
-                      style={{ borderRight: "none", borderBottom: "none" }}
-                    >
+                    <td style={{ textAlign: "right", paddingRight: "6px", fontWeight: "700" }}>
                       {fmt(p.rowTotal)}
                     </td>
                   </tr>
                 ))}
-                {/* Empty filler row to stretch table */}
-                <tr style={{ height: "auto" }}>
-                  <td style={{ borderLeft: "none", borderBottom: "none" }}></td>
-                  <td style={{ borderBottom: "none" }}></td>
-                  <td style={{ borderBottom: "none" }}></td>
-                  <td style={{ borderBottom: "none" }}></td>
-                  <td style={{ borderBottom: "none" }}></td>
-                  {!isNonGstReceipt && <td style={{ borderBottom: "none" }}></td>}
-                  <td
-                    style={{ borderRight: "none", borderBottom: "none" }}
-                  ></td>
+
+                {/* Empty Filler Row with Vertical Grid Lines down to Totals */}
+                <tr style={{ height: "100%" }}>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  {isInterstate ? <td></td> : <><td/><td/></>}
+                  <td></td>
+                </tr>
+
+                {/* Subtotal / GST Breakdown Row matching Photo */}
+                <tr
+                  style={{
+                    borderTop: "1.5px solid #000000",
+                    borderBottom: "1.5px solid #000000",
+                    fontSize: "8.5px",
+                    fontWeight: "700",
+                    background: "#FFFFFF",
+                    height: "22px",
+                  }}
+                >
+                  <td colSpan={7} style={{ textAlign: "left", paddingLeft: "6px", verticalAlign: "middle" }}>
+                    {gstBreakdownText}
+                  </td>
+                  {isInterstate ? (
+                    <td style={{ textAlign: "right", paddingRight: "6px", verticalAlign: "middle" }}>
+                      {fmt(calcIgst)}
+                    </td>
+                  ) : (
+                    <>
+                      <td style={{ textAlign: "right", paddingRight: "6px", verticalAlign: "middle" }}>
+                        {fmt(calcSgst)}
+                      </td>
+                      <td style={{ textAlign: "right", paddingRight: "6px", verticalAlign: "middle" }}>
+                        {fmt(calcCgst)}
+                      </td>
+                    </>
+                  )}
+                  <td style={{ textAlign: "right", paddingRight: "6px", verticalAlign: "middle", fontWeight: "700" }}>
+                    {fmt(totalLineAmount)}
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          {/* Totals Breakdown & Bank Details Section */}
-          <div className="d-flex border-bottom-black">
-            <div className="flex-grow-1 p-2 d-flex flex-column justify-content-between border-end-black">
-              {loc.bank_name ||
-                biz.bank_name ||
-                loc.account_number ||
-                biz.account_number ? (
-                <div>
-                  <div
-                    className="fw-bold text-decoration-underline mb-1"
-                    style={{ fontSize: "11px" }}
-                  >
-                    Bank Details :
-                  </div>
-                  <div
-                    className="d-flex flex-column"
-                    style={{ fontSize: "11px", lineHeight: "1.4" }}
-                  >
-                    {loc.account_holder || biz.account_holder ? (
-                      <div>
-                        <span
-                          style={{ width: "85px", display: "inline-block" }}
-                        >
-                          A/c Holder
-                        </span>
-                        : &nbsp;
-                        <strong>
-                          {(
-                            loc.account_holder || biz.account_holder
-                          ).toUpperCase()}
-                        </strong>
-                      </div>
-                    ) : null}
-                    {loc.bank_name || biz.bank_name ? (
-                      <div>
-                        <span
-                          style={{ width: "85px", display: "inline-block" }}
-                        >
-                          Bank Name
-                        </span>
-                        : &nbsp;
-                        <strong>
-                          {(loc.bank_name || biz.bank_name).toUpperCase()}
-                        </strong>
-                      </div>
-                    ) : null}
-                    {loc.branch || biz.branch ? (
-                      <div>
-                        <span
-                          style={{ width: "85px", display: "inline-block" }}
-                        >
-                          Branch
-                        </span>
-                        : &nbsp;
-                        <strong>
-                          {(loc.branch || biz.branch).toUpperCase()}
-                        </strong>
-                      </div>
-                    ) : null}
-                    {loc.account_number || biz.account_number ? (
-                      <div>
-                        <span
-                          style={{ width: "85px", display: "inline-block" }}
-                        >
-                          A/c No.
-                        </span>
-                        : &nbsp;
-                        <strong>
-                          {loc.account_number || biz.account_number}
-                        </strong>
-                      </div>
-                    ) : null}
-                    {loc.ifsc || biz.ifsc || biz.ifsc_code ? (
-                      <div>
-                        <span
-                          style={{ width: "85px", display: "inline-block" }}
-                        >
-                          IFSC Code
-                        </span>
-                        : &nbsp;
-                        <strong>
-                          {(
-                            loc.ifsc ||
-                            biz.ifsc_code ||
-                            biz.ifsc
-                          ).toUpperCase()}
-                        </strong>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
-                <div />
-              )}
+          {/* ============================================================== */}
+          {/* 6. FINANCIAL SUMMARY & TOTAL BAR                               */}
+          {/* ============================================================== */}
+          {/* Totals Breakdown on Right */}
+          <div className="d-flex justify-content-end p-1 pe-2" style={{ borderBottom: "1.5px solid #000000", position: "relative", zIndex: 1 }}>
+            <table style={{ width: "340px", borderCollapse: "collapse", fontSize: "9.5px" }}>
+              <tbody>
+                <tr>
+                  <td style={{ fontWeight: "600", padding: "1.5px 0" }}>Total value before GST (SGST/CGST/IGST)</td>
+                  <td style={{ textAlign: "right", fontWeight: "600", padding: "1.5px 0" }}>{fmt(finalAmount)}</td>
+                </tr>
+                <tr>
+                  <td style={{ fontWeight: "600", padding: "1.5px 0" }}>Total GST</td>
+                  <td style={{ textAlign: "right", fontWeight: "600", padding: "1.5px 0" }}>{fmt(finalCgst + finalSgst + calcIgst)}</td>
+                </tr>
+                {transportCharges > 0 && (
+                  <tr>
+                    <td style={{ fontWeight: "600", padding: "1.5px 0" }}>Transportation Charges</td>
+                    <td style={{ textAlign: "right", fontWeight: "600", padding: "1.5px 0" }}>{fmt(transportCharges)}</td>
+                  </tr>
+                )}
+                {parsedAdditionalCharges.length > 0 ? (
+                  parsedAdditionalCharges.map((chg, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight: "600", padding: "1.5px 0" }}>{chg.name || "Additional Charge"}</td>
+                      <td style={{ textAlign: "right", fontWeight: "600", padding: "1.5px 0" }}>{fmt(Number(chg.amount) || 0)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  additionalChargesTotal > 0 && (
+                    <tr>
+                      <td style={{ fontWeight: "600", padding: "1.5px 0" }}>Additional Charges</td>
+                      <td style={{ textAlign: "right", fontWeight: "600", padding: "1.5px 0" }}>{fmt(additionalChargesTotal)}</td>
+                    </tr>
+                  )
+                )}
+                {roundOff !== 0 && (
+                  <tr>
+                    <td style={{ fontWeight: "600", padding: "1.5px 0" }}>Round off</td>
+                    <td style={{ textAlign: "right", fontWeight: "600", padding: "1.5px 0" }}>
+                      {roundOff >= 0 ? fmt(roundOff) : `-${fmt(Math.abs(roundOff))}`}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Total Full-Width Bar */}
+          <div
+            className="d-flex align-items-center"
+            style={{
+              borderBottom: "1.5px solid #000000",
+              fontSize: "10px",
+              fontWeight: "700",
+              height: "22px",
+              background: "#FFFFFF",
+              position: "relative",
+              zIndex: 1,
+            }}
+          >
+            <div style={{ width: "32px", borderRight: "1px solid #000000", height: "100%" }}></div>
+            <div style={{ width: "65px", borderRight: "1px solid #000000", height: "100%" }}></div>
+            <div
+              className="d-flex align-items-center justify-content-end px-2"
+              style={{ flexGrow: 1, borderRight: "1px solid #000000", height: "100%" }}
+            >
+              Total
             </div>
             <div
-              style={{ width: "230px" }}
-              className="d-flex flex-column border-start-black"
+              className="d-flex align-items-center justify-content-center"
+              style={{ width: "48px", borderRight: "1px solid #000000", height: "100%" }}
             >
-              <div
-                className="d-flex justify-content-between px-2 py-1 border-bottom-black"
-                style={{ fontSize: "11px" }}
-              >
-                <span>AMOUNT -</span>
-                <span className="fw-bold">{fmt(finalAmount)}</span>
+              {totalQuantity}
+            </div>
+            <div style={{ width: isInterstate ? "220px" : "274px", borderRight: "1px solid #000000", height: "100%" }}></div>
+            <div
+              className="d-flex align-items-center justify-content-end px-2"
+              style={{ width: "75px", height: "100%", fontWeight: "800" }}
+            >
+              {fmt(grandTotal)}
+            </div>
+          </div>
+
+          {/* Amount In Words & Reverse Charge Row */}
+          <div
+            className="d-flex align-items-center justify-content-between px-2"
+            style={{
+              borderBottom: "1.5px solid #000000",
+              minHeight: "24px",
+              fontSize: "9.5px",
+              paddingTop: "2px",
+              paddingBottom: "2px",
+              position: "relative",
+              zIndex: 1,
+            }}
+          >
+            <div className="d-flex align-items-center gap-1">
+              <span style={{ fontWeight: "600" }}>Rs.</span>
+              <span style={{ fontWeight: "700" }}>{numberToWords(grandTotal) || "Zero"} Only</span>
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              <span style={{ fontWeight: "600" }}>Amount of Tax Subject to Reverse charge</span>
+              <span style={{ border: "1px solid #000000", padding: "1px 6px", fontSize: "9px" }}>0.00</span>
+              <span style={{ border: "1px solid #000000", padding: "1px 6px", fontSize: "9px" }}>0.00</span>
+            </div>
+          </div>
+
+          {/* ============================================================== */}
+          {/* 7. FOOTER: TERMS & CONDITIONS (Left) | SIGNATURES (Right)      */}
+          {/* ============================================================== */}
+          <div className="d-flex" style={{ minHeight: "115px", fontSize: "9px", position: "relative", zIndex: 1 }}>
+            {/* Left: Terms & Conditions */}
+            <div
+              className="p-2 d-flex flex-column justify-content-between"
+              style={{ width: "55%", borderRight: "1px solid #000000" }}
+            >
+              <div>
+                <div style={{ fontWeight: "700", textDecoration: "underline", marginBottom: "2px" }}>
+                  Terms &amp; Conditions
+                </div>
+                <div style={{ fontWeight: "600", marginBottom: "2px" }}>E &amp; OE.</div>
+                <div style={{ lineHeight: "1.4", color: "#111" }}>
+                  <div>1.Goods once sold cannot be taken back.</div>
+                  <div>2.Interest @24 % p.a. will be charged if the payment is not made with in the stipulated time.</div>
+                  <div>3.subject to "SALEM" jurisdiction.</div>
+                </div>
               </div>
-              {!isNonGstReceipt && (
-                <>
-                  <div
-                    className="d-flex justify-content-between px-2 py-1 border-bottom-black"
-                    style={{ fontSize: "11px" }}
-                  >
-                    <span>CGST -</span>
-                    <span className="fw-bold">{fmt(finalCgst)}</span>
-                  </div>
-                  <div
-                    className="d-flex justify-content-between px-2 py-1 border-bottom-black"
-                    style={{ fontSize: "11px" }}
-                  >
-                    <span>SGST -</span>
-                    <span className="fw-bold">{fmt(finalSgst)}</span>
-                  </div>
-                </>
-              )}
-              {transportCharges > 0 && (
-                <div
-                  className="d-flex justify-content-between px-2 py-1 border-bottom-black"
-                  style={{ fontSize: "11px" }}
-                >
-                  <span>TRANSPORT CHARGES -</span>
-                  <span className="fw-bold">+ ₹{fmt(transportCharges)}</span>
+              {finalOutstanding > 0 && (
+                <div className="mt-1 fw-bold text-danger" style={{ fontSize: "8.5px" }}>
+                  Advance Paid: ₹{fmt(advancePaid)} | Balance Due: ₹{fmt(finalOutstanding)}
                 </div>
               )}
-              {parsedAdditionalCharges.map((chg, i) => (
-                <div
-                  key={i}
-                  className="d-flex justify-content-between px-2 py-1 border-bottom-black"
-                  style={{ fontSize: "11px" }}
-                >
-                  <span>{String(chg.name || "ADDITIONAL CHARGE").toUpperCase()} -</span>
-                  <span className="fw-bold">+ ₹{fmt(chg.amount)}</span>
-                </div>
-              ))}
+            </div>
+
+            {/* Right: Receiver's Signature & Authorized Signatory */}
+            <div className="d-flex flex-column" style={{ width: "45%" }}>
+              {/* Receiver's Signature */}
               <div
-                className="d-flex justify-content-between px-2 py-1 border-bottom-black"
-                style={{ fontSize: "11px" }}
-              >
-                <span>ROUND OFF -</span>
-                <span className="fw-bold">
-                  {roundOff >= 0 ? `+${fmt(roundOff)}` : fmt(roundOff)}
-                </span>
-              </div>
-              {totalDiscountAmount > 0 && (
-                <div
-                  className="d-flex justify-content-between px-2 py-1 border-bottom-black text-danger"
-                  style={{ fontSize: "11px" }}
-                >
-                  <span>DISCOUNT -</span>
-                  <span className="fw-bold">- ₹{fmt(totalDiscountAmount)}</span>
-                </div>
-              )}
-              <div
-                className="d-flex justify-content-between px-2 py-1 fw-bold grand-total-row"
-                style={{ fontSize: "13px" }}
-              >
-                <span>GRAND TOTAL -</span>
-                <span>₹{fmt(grandTotal)}</span>
-              </div>
-              {advancePayment && (
-                <>
-                  <div
-                    className="d-flex justify-content-between px-2 py-1 border-bottom-black"
-                    style={{ fontSize: "10px" }}
-                  >
-                    <span>ADVANCE ({advancePayment.method || "Cash"}) -</span>
-                    <span className="fw-bold">₹{fmt(advancePaid)}</span>
-                  </div>
-                  <div
-                    className="d-flex justify-content-between px-2 py-1 border-bottom-black text-muted"
-                    style={{ fontSize: "10px" }}
-                  >
-                    <span>BAL. AFTER ADV -</span>
-                    <span className="fw-bold">₹{fmt(balanceAfterAdvance)}</span>
-                  </div>
-                </>
-              )}
-              {subsequentPayments.length > 0 &&
-                subsequentPayments.map((p, pIdx) => (
-                  <div
-                    key={p.id || pIdx}
-                    className="d-flex justify-content-between px-2 py-1 border-bottom-black"
-                    style={{ fontSize: "10px" }}
-                  >
-                    <span>
-                      {subsequentPayments.length > 1 || advancePayment
-                        ? `BAL. PAID ${pIdx + 1}`
-                        : "PAID"}{" "}
-                      ({p.method || "Cash"}) -
-                    </span>
-                    <span className="fw-bold">₹{fmt(p.amount)}</span>
-                  </div>
-                ))}
-              <div
-                className="d-flex justify-content-between px-2 py-1 border-bottom-black fw-bold"
-                style={{ fontSize: "11px", color: "#16a34a" }}
-              >
-                <span>TOTAL PAID -</span>
-                <span>₹{fmt(totalPaid)}</span>
-              </div>
-              <div
-                className="d-flex justify-content-between px-2 py-1 fw-bold"
+                className="p-1 px-2"
                 style={{
-                  fontSize: "12px",
-                  backgroundColor: finalOutstanding > 0 ? "#fef2f2" : "#f0fdf4",
-                  color: finalOutstanding > 0 ? "#dc2626" : "#16a34a",
+                  borderBottom: "1px solid #000000",
+                  minHeight: "35px",
+                  fontSize: "9px",
+                  fontWeight: "600",
                 }}
               >
-                <span>{finalOutstanding > 0 ? "OUTSTANDING -" : "BALANCE -"}</span>
-                <span>{finalOutstanding > 0 ? `₹${fmt(finalOutstanding)}` : "₹0.00 (PAID)"}</span>
+                Receiver's Signature
               </div>
-            </div>
-          </div>
 
-          {/* Amount in Words Line Below */}
-          <div className="p-2 border-bottom-black" style={{ fontSize: "11px" }}>
-            <span className="fw-bold">Amount Chargeable (in words): </span>
-            <span className="fst-italic text-capitalize fw-bold">
-              {numberToWords(grandTotal) || "-"}
-            </span>
-          </div>
-
-          {/* Bottom Footer Row */}
-          <div
-            className="d-flex"
-            style={{ minHeight: "115px", fontSize: "11px" }}
-          >
-            <div className="p-2 d-flex flex-column border-end-black flex-grow-1" style={{ fontSize: "10px", lineHeight: "1.35" }}>
+              {/* For SHIVA ELECTRONICS & Authorised Signatory */}
               <div
-                className="text-decoration-underline mb-1"
-                style={{ fontSize: "10.5px", fontWeight: "bold" }}
+                className="p-1 px-2 d-flex flex-column justify-content-between text-center flex-grow-1"
+                style={{ minHeight: "75px" }}
               >
-                Terms & Conditions :
-              </div>
-              <div>
-                1. Please inspect all furniture items at the time of delivery. Later complaints of damage, scratches or shortage will not be entertained.
-              </div>
-              <div style={{ marginTop: "3px" }}>
-                2. Furniture once sold will not be taken back or exchanged. Colour, shade and grain variation in wood / fabric is natural.
-              </div>
-              <div style={{ marginTop: "3px" }}>
-                3. Warranty, if any, covers manufacturing defects only and does not apply to wear and tear, misuse or improper handling.
-              </div>
-            </div>
-            <div
-              className="p-2 d-flex flex-column justify-content-between text-center"
-              style={{ width: "240px" }}
-            >
-              <div className="text-start" style={{ fontSize: "10px" }}>Receiver's Signature :</div>
-              <div className="mt-1" style={{ fontSize: "10.5px" }}>for {compName}</div>
-              <div className="mt-auto d-flex flex-column align-items-center">
-                {signImg && (
-                  <img
-                    src={signImg}
-                    alt="Authorised Signatory"
-                    style={{
-                      maxHeight: "44px",
-                      maxWidth: "135px",
-                      objectFit: "contain",
-                      marginBottom: "2px",
-                      mixBlendMode: "multiply",
-                    }}
-                  />
-                )}
-                <div className="border-top-black d-inline-block px-4 pt-1" style={{ fontSize: "10.5px" }}>
+                <div style={{ fontWeight: "700", fontSize: "9.5px", letterSpacing: "0.3px" }}>
+                  For {compName.toUpperCase()}
+                </div>
+
+                <div style={{ minHeight: "35px" }}></div>
+
+                <div style={{ fontWeight: "700", fontSize: "9.5px" }}>
                   Authorised Signatory
                 </div>
               </div>

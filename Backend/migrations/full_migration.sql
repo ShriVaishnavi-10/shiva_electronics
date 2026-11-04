@@ -585,6 +585,7 @@ CALL safe_add_column('products', 'secondary_unit',     'VARCHAR(50) NULL');
 CALL safe_add_column('products', 'parameter',          'VARCHAR(100) NULL');
 CALL safe_add_column('products', 'hsncode',            'VARCHAR(50) NULL');
 CALL safe_add_column('products', 'qty',                'INT DEFAULT 0 NULL');
+CALL safe_add_column('products', 'quantity',            'DECIMAL(12,3) NULL DEFAULT 0.000');
 CALL safe_add_column('products', 'min_order_quantity', 'INT NULL');
 CALL safe_add_column('products', 'price',              'DECIMAL(12,2) NULL');
 CALL safe_add_column('products', 'margin',             'DECIMAL(8,2) NULL');
@@ -743,7 +744,18 @@ INSERT IGNORE INTO permissions (module_name, permission_key, description) VALUES
   ('users',      'users.view',          'View users'),
   ('users',      'users.create',        'Create users'),
   ('users',      'users.edit',          'Edit users'),
-  ('users',      'users.delete',        'Delete users');
+  ('users',      'users.delete',     'Delete users'),
+  ('hrms',       'hrms.view',        'View HRMS dashboard and employee information'),
+  ('hrms',       'hrms.employees.create', 'Create HRMS employee records'),
+  ('hrms',       'hrms.employees.edit', 'Edit HRMS employee records'),
+  ('hrms',       'hrms.employees.delete', 'Delete HRMS employee records'),
+  ('hrms',       'hrms.attendance.manage', 'Record and update employee attendance'),
+  ('hrms',       'hrms.leave.create', 'Submit employee leave requests'),
+  ('hrms',       'hrms.leave.approve', 'Approve or reject employee leave requests'),
+  ('hrms',       'hrms.payroll.view', 'View HRMS payroll information'),
+  ('hrms',       'hrms.payroll.edit', 'Manage HRMS payroll'),
+  ('hrms',       'hrms.reports.view', 'View HRMS reports'),
+  ('hrms',       'hrms.settings.edit', 'Manage HRMS settings');
 
 -- Give Admin ALL permissions
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
