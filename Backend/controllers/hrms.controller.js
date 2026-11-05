@@ -721,8 +721,86 @@ exports.deleteDesignation = async (req, res) => {
 /* ============================================================== */
 /* MODULE 4: ATTENDANCE TRACKING & CALENDAR                       */
 /* ============================================================== */
+exports.updateAttendance = (req, res) => {
+  const recordId = req.params.id || req.body.id;
+  let { employee_id, status = "Present", check_in, check_out, notes, date } = req.body;
+
+  if (recordId == null && (employee_id == null || invalidId(employee_id))) {
+    return res.status(400).json({ success: false, message: "A valid record ID or employee is required" });
+  }
+
+  // Normalize status casing and format (e.g. HALF_DAY -> Half Day)
+  const rawStatus = String(status || "").trim().toLowerCase();
+  for (const s of ATTENDANCE_STATUSES) {
+    if (s.toLowerCase() === rawStatus || s.toLowerCase().replace(/\s+/g, "_") === rawStatus) {
+      status = s;
+      break;
+    }
+  }
+
+  if (status && !ATTENDANCE_STATUSES.has(status)) {
+    status = "Present";
+  }
+
+  // Format check_in and check_out
+  const cleanCheckIn = check_in ? String(check_in).trim().slice(0, 8) : null;
+  const cleanCheckOut = check_out ? String(check_out).trim().slice(0, 8) : null;
+
+  if (cleanCheckIn && !isValidTime(cleanCheckIn)) {
+    return res.status(400).json({ success: false, message: "Attendance check-in time must use HH:MM format" });
+  }
+  if (cleanCheckOut && !isValidTime(cleanCheckOut)) {
+    return res.status(400).json({ success: false, message: "Attendance check-out time must use HH:MM format" });
+  }
+
+  if (recordId && !invalidId(recordId)) {
+    let updateFields = ["check_in = ?", "check_out = ?", "status = ?", "notes = ?"];
+    let updateParams = [cleanCheckIn, cleanCheckOut, status, notes ? String(notes).trim() : null];
+
+    if (date && isValidDate(date)) {
+      updateFields.push("attendance_date = ?");
+      updateParams.push(date);
+    }
+    if (employee_id && !invalidId(employee_id)) {
+      updateFields.push("employee_id = ?");
+      updateParams.push(Number(employee_id));
+    }
+
+    updateParams.push(Number(recordId));
+
+    db.query(
+      `UPDATE hrms_attendance SET ${updateFields.join(", ")} WHERE id = ?`,
+      updateParams,
+      (err, result) => {
+        if (err) {
+          console.error("updateAttendance error:", err);
+          return res.status(500).json({ success: false, message: "Failed to update attendance times" });
+        }
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ success: false, message: "Attendance record not found" });
+        }
+        return res.json({
+          success: true,
+          message: "Employee Check-In and Check-Out times updated successfully",
+          data: {
+            id: Number(recordId),
+            check_in: cleanCheckIn,
+            check_out: cleanCheckOut,
+            status
+          }
+        });
+      }
+    );
+  } else {
+    return exports.recordAttendance(req, res);
+  }
+};
+
 exports.recordAttendance = (req, res) => {
-  const { employee_id, status = "Present", check_in, check_out, notes } = req.body;
+  if (req.body.id && !invalidId(req.body.id)) {
+    return exports.updateAttendance(req, res);
+  }
+  let { employee_id, status = "Present", check_in, check_out, notes } = req.body;
   const attendanceDate = req.body.date || localDateString();
   if (invalidId(employee_id)) {
     return res.status(400).json({ success: false, message: "A valid employee is required" });
@@ -730,6 +808,16 @@ exports.recordAttendance = (req, res) => {
   if (!isValidDate(attendanceDate)) {
     return res.status(400).json({ success: false, message: "A valid attendance date is required" });
   }
+
+  // Normalize status casing and format (e.g. HALF_DAY -> Half Day)
+  const rawStatus = String(status || "").trim().toLowerCase();
+  for (const s of ATTENDANCE_STATUSES) {
+    if (s.toLowerCase() === rawStatus || s.toLowerCase().replace(/\s+/g, "_") === rawStatus) {
+      status = s;
+      break;
+    }
+  }
+
   if (!ATTENDANCE_STATUSES.has(status)) {
     return res.status(400).json({ success: false, message: "Invalid attendance status" });
   }
@@ -773,21 +861,69 @@ exports.recordAttendance = (req, res) => {
 exports.listAttendance = async (req, res) => {
   try {
     const scope = getBranchScope(req, "e");
-    const { date, month, employee_id } = req.query;
+    const { date, month, employee_id, from_date, to_date, from_time, to_time, status, search } = req.query;
     let whereClause = `${scope.clause}`;
     const params = [...scope.params];
 
-    if (date) {
-      whereClause += " AND a.attendance_date = ?";
-      params.push(date);
-    } else if (month) {
-      whereClause += " AND a.attendance_date LIKE ?";
-      params.push(`${month}%`);
+    // Staff Search (matches staff name, employee code, department, designation, or remarks)
+    if (search && String(search).trim()) {
+      const term = `%${String(search).trim()}%`;
+      whereClause += " AND (e.name LIKE ? OR e.employee_code LIKE ? OR e.department LIKE ? OR e.designation LIKE ? OR a.notes LIKE ?)";
+      params.push(term, term, term, term, term);
     }
 
-    if (employee_id) {
+    // Date filtering: when search is active, don't lock to a single day unless explicitly given in range/month
+    if (!search || !String(search).trim()) {
+      if (date) {
+        whereClause += " AND DATE(a.attendance_date) = ?";
+        params.push(date);
+      } else if (from_date && to_date) {
+        const start = from_date <= to_date ? from_date : to_date;
+        const end = from_date <= to_date ? to_date : from_date;
+        whereClause += " AND DATE(a.attendance_date) BETWEEN ? AND ?";
+        params.push(start, end);
+      } else if (from_date) {
+        whereClause += " AND DATE(a.attendance_date) >= ?";
+        params.push(from_date);
+      } else if (to_date) {
+        whereClause += " AND DATE(a.attendance_date) <= ?";
+        params.push(to_date);
+      } else if (month) {
+        whereClause += " AND a.attendance_date LIKE ?";
+        params.push(`${month}%`);
+      }
+    } else {
+      if (from_date && to_date) {
+        const start = from_date <= to_date ? from_date : to_date;
+        const end = from_date <= to_date ? to_date : from_date;
+        whereClause += " AND DATE(a.attendance_date) BETWEEN ? AND ?";
+        params.push(start, end);
+      } else if (month) {
+        whereClause += " AND a.attendance_date LIKE ?";
+        params.push(`${month}%`);
+      }
+    }
+
+    if (from_time && to_time) {
+      whereClause += " AND a.check_in BETWEEN ? AND ?";
+      params.push(from_time, to_time);
+    } else if (from_time) {
+      whereClause += " AND a.check_in >= ?";
+      params.push(from_time);
+    } else if (to_time) {
+      whereClause += " AND a.check_in <= ?";
+      params.push(to_time);
+    }
+
+    if (employee_id && employee_id !== "ALL" && employee_id !== "") {
       whereClause += " AND a.employee_id = ?";
       params.push(employee_id);
+    }
+
+    if (status && status !== "ALL" && status !== "") {
+      // Support matching by name or underscored format
+      whereClause += " AND (a.status = ? OR LOWER(REPLACE(a.status, ' ', '_')) = LOWER(?))";
+      params.push(status, status);
     }
 
     const rows = await queryAsync(`
@@ -801,10 +937,14 @@ exports.listAttendance = async (req, res) => {
         a.status,
         a.status AS attendance_status,
         a.notes,
+        a.notes AS remarks,
         a.created_at,
         e.name AS employee_name,
         e.employee_code,
-        e.department
+        e.department,
+        e.department AS department_name,
+        e.designation,
+        e.designation AS designation_name
       FROM hrms_attendance a
       JOIN hrms_employees e ON e.id = a.employee_id
       WHERE ${whereClause}
@@ -1266,34 +1406,141 @@ exports.updateCandidateStatus = async (req, res) => {
 /* ============================================================== */
 exports.getHrmsReport = async (req, res) => {
   try {
-    const { report_type = "attendance", from_date, to_date } = req.query;
-    const start = from_date || localDateString().substring(0, 8) + "01";
-    const end = to_date || localDateString();
+    const scope = getBranchScope(req, "e");
+    const { report_type = "muster", month, from_date, to_date, department, employee_id, status } = req.query;
+    const nowStr = localDateString();
+    const currentMonth = month || (from_date ? from_date.substring(0, 7) : nowStr.substring(0, 7));
+    const start = from_date || `${currentMonth}-01`;
+    const end = to_date || nowStr;
 
-    if (report_type === "attendance") {
+    // 1. MONTHLY ATTENDANCE SUMMARY (MUSTER ROLL)
+    if (report_type === "muster") {
+      const targetMonth = month || start.substring(0, 7);
+      const mStart = `${targetMonth}-01`;
+      const mEnd = `${targetMonth}-31`;
+
+      let whereClause = `${scope.clause}`;
+      const params = [mStart, mEnd, ...scope.params];
+
+      if (department && department !== "ALL") {
+        whereClause += " AND e.department = ?";
+        params.push(department);
+      }
+      if (employee_id && employee_id !== "ALL") {
+        whereClause += " AND e.id = ?";
+        params.push(Number(employee_id));
+      }
+
       const rows = await queryAsync(`
-        SELECT a.attendance_date, e.employee_code, e.name AS employee_name, e.department,
-               a.status, a.check_in, a.check_out, a.notes
+        SELECT 
+          e.id AS employee_id,
+          e.employee_code,
+          e.name AS employee_name,
+          e.department,
+          e.designation,
+          e.salary,
+          e.status AS employee_status,
+          COUNT(CASE WHEN a.status = 'Present' THEN 1 END) AS present_days,
+          COUNT(CASE WHEN a.status = 'Late' THEN 1 END) AS late_days,
+          COUNT(CASE WHEN a.status IN ('Half Day', 'Half_Day') THEN 1 END) AS half_days,
+          COUNT(CASE WHEN a.status IN ('On Leave', 'On_Leave') THEN 1 END) AS leave_days,
+          COUNT(CASE WHEN a.status = 'Absent' THEN 1 END) AS absent_days,
+          COUNT(a.id) AS total_logged_days
+        FROM hrms_employees e
+        LEFT JOIN hrms_attendance a 
+          ON a.employee_id = e.id 
+          AND a.attendance_date BETWEEN ? AND ?
+        WHERE ${whereClause}
+        GROUP BY e.id, e.employee_code, e.name, e.department, e.designation, e.salary, e.status
+        ORDER BY e.name ASC
+      `, params);
+
+      return res.json({ success: true, report_type, month: targetMonth, data: rows });
+    }
+
+    // 2. DETAILED DAILY ATTENDANCE REGISTER
+    if (report_type === "attendance") {
+      let whereClause = `${scope.clause} AND a.attendance_date BETWEEN ? AND ?`;
+      const params = [...scope.params, start, end];
+
+      if (department && department !== "ALL") {
+        whereClause += " AND e.department = ?";
+        params.push(department);
+      }
+      if (employee_id && employee_id !== "ALL") {
+        whereClause += " AND e.id = ?";
+        params.push(Number(employee_id));
+      }
+      if (status && status !== "ALL") {
+        whereClause += " AND a.status = ?";
+        params.push(status);
+      }
+
+      const rows = await queryAsync(`
+        SELECT a.id, a.attendance_date, e.employee_code, e.name AS employee_name, e.department,
+               e.designation, a.status, a.check_in, a.check_out, a.notes
         FROM hrms_attendance a
         JOIN hrms_employees e ON e.id = a.employee_id
-        WHERE a.attendance_date BETWEEN ? AND ?
+        WHERE ${whereClause}
         ORDER BY a.attendance_date DESC, e.name ASC
-      `, [start, end]);
-      return res.json({ success: true, report_type, data: rows });
+      `, params);
+      return res.json({ success: true, report_type, from_date: start, to_date: end, data: rows });
     }
 
+    // 3. STAFF LEAVE AUDIT REPORT
     if (report_type === "leaves") {
+      let whereClause = `${scope.clause} AND l.start_date <= ? AND l.end_date >= ?`;
+      const params = [...scope.params, end, start];
+
+      if (department && department !== "ALL") {
+        whereClause += " AND e.department = ?";
+        params.push(department);
+      }
+      if (employee_id && employee_id !== "ALL") {
+        whereClause += " AND e.id = ?";
+        params.push(Number(employee_id));
+      }
+      if (status && status !== "ALL") {
+        whereClause += " AND l.status = ?";
+        params.push(status);
+      }
+
       const rows = await queryAsync(`
-        SELECT l.start_date, l.end_date, l.total_days, e.employee_code, e.name AS employee_name,
-               e.department, l.leave_type, l.status, l.approved_by, l.reason
+        SELECT l.id, l.start_date, l.end_date, l.total_days, e.employee_code, e.name AS employee_name,
+               e.department, l.leave_type, l.status, l.approved_by, l.reason, l.created_at
         FROM hrms_leaves l
         JOIN hrms_employees e ON e.id = l.employee_id
-        WHERE l.start_date BETWEEN ? AND ?
+        WHERE ${whereClause}
         ORDER BY l.start_date DESC
-      `, [start, end]);
+      `, params);
+      return res.json({ success: true, report_type, from_date: start, to_date: end, data: rows });
+    }
+
+    // 4. STAFF MASTER DIRECTORY REPORT
+    if (report_type === "employees") {
+      let whereClause = `${scope.clause}`;
+      const params = [...scope.params];
+
+      if (department && department !== "ALL") {
+        whereClause += " AND e.department = ?";
+        params.push(department);
+      }
+      if (status && status !== "ALL") {
+        whereClause += " AND e.status = ?";
+        params.push(status);
+      }
+
+      const rows = await queryAsync(`
+        SELECT e.id, e.employee_code, e.name AS employee_name, e.department, e.designation,
+               e.phone, e.email, e.joining_date, e.salary, e.employment_type, e.status
+        FROM hrms_employees e
+        WHERE ${whereClause}
+        ORDER BY e.name ASC
+      `, params);
       return res.json({ success: true, report_type, data: rows });
     }
 
+    // 5. PAYROLL REPORT
     if (report_type === "payroll") {
       const rows = await queryAsync(`
         SELECT p.month, e.employee_code, e.name AS employee_name, e.department,

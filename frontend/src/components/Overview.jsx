@@ -335,6 +335,8 @@ const Dashboard = () => {
 
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isNonUser = storedUser.role_name?.toLowerCase().includes("non user") || storedUser.role_id === 6;
+  const roleLower = String(storedUser.role_name || "").toLowerCase().trim();
+  const isSuperAdmin = roleLower === "super admin" || storedUser.role_id === 5;
 
   const actionCards = isNonUser
     ? [
@@ -403,7 +405,7 @@ const Dashboard = () => {
       <Row className="mb-4 align-items-center">
         <Col md="6">
           <h4 className="fw-bold dashboard-welcome">
-            {isNonUser ? "WELCOME TO NON-GST ADMIN PANEL" : "WELCOME, CLAVIS TECH WORKS"}
+            {isNonUser ? "WELCOME TO NON-GST ADMIN PANEL" : (isSuperAdmin ? "WELCOME SUPER ADMIN" : "WELCOME ADMIN")}
           </h4>
         </Col>
         <Col

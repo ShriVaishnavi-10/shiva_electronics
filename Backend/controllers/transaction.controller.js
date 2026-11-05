@@ -1788,7 +1788,9 @@ exports.getSalesReceiptById = (req, res) => {
       return res.status(404).json({ message: "Sale not found" });
     }
     const h = rows[0];
-    if (req.isNonUser && Number(h.is_gst) === 1) {
+    const roleLower = String(req.user?.role_name || "").toLowerCase();
+    const isAdmin = roleLower.includes("admin") || req.user?.role_id === 1 || req.user?.role_id === 5 || req.user?.id === 1;
+    if (!isAdmin && req.isNonUser && Number(h.is_gst) === 1) {
       return res.status(403).json({ message: "Access denied: Non-GST role cannot access GST transactions." });
     }
 

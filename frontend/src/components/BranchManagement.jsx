@@ -16,8 +16,9 @@ const empty = {
 export default function BranchManagement() {
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const permissions = storedUser.permissions || [];
-  const isSuperAdmin = storedUser.role_name?.toLowerCase() === "super admin";
-  const hasPermission = (key) => isSuperAdmin || permissions.includes(key);
+  const roleLower = String(storedUser.role_name || "").toLowerCase().trim();
+  const isSuperAdmin = roleLower === "super admin" || storedUser.role_id === 5;
+  const hasPermission = (key) => isSuperAdmin;
 
   const [branches, setBranches] = useState([]);
   const [modal, setModal] = useState(false);
@@ -91,6 +92,15 @@ export default function BranchManagement() {
     }
     setForm((prev) => ({ ...prev, ...updates }));
   };
+
+  if (!isSuperAdmin) {
+    return (
+      <Container className="p-5 text-center">
+        <h4 className="text-danger fw-bold">Access Restricted</h4>
+        <p className="text-muted">Branch Management is confidential and strictly restricted to Super Admin only.</p>
+      </Container>
+    );
+  }
 
   return (
     <Container fluid className="p-3 bg-light min-vh-100">

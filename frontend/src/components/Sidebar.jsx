@@ -19,10 +19,26 @@ const SidebarContent = ({ close, collapsed = false }) => {
 
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const permissions = storedUser.permissions || [];
-  const isSuperAdmin = storedUser.role_name?.toLowerCase() === "super admin";
-  const isNonUser = storedUser.role_name?.toLowerCase().includes("non user") || storedUser.role_id === 6;
-  const isCashier = storedUser.role_name?.toLowerCase().includes("cashier") || storedUser.role_id === 8;
-  const hasPermission = (key) => isSuperAdmin || permissions.includes(key) || (isNonUser && key.startsWith("expenses."));
+  const roleLower = String(storedUser.role_name || "").toLowerCase().trim();
+  const isSuperAdmin = roleLower === "super admin" || storedUser.role_id === 5;
+  const isAdmin = !isSuperAdmin && (roleLower.includes("admin") || storedUser.role_id === 1 || storedUser.id === 1);
+  const isNonUser = !isSuperAdmin && !isAdmin && (roleLower.includes("non user") || storedUser.role_id === 6);
+  const isCashier = !isSuperAdmin && !isAdmin && (roleLower.includes("cashier") || storedUser.role_id === 8);
+
+  const isConfidentialKey = (key) =>
+    key.startsWith("reports.") ||
+    key.startsWith("quotations.") ||
+    key.startsWith("business_location.") ||
+    key.startsWith("branches.") ||
+    key.startsWith("users.");
+
+  const hasPermission = (key) => {
+    if (isSuperAdmin) return true;
+    if (isConfidentialKey(key)) return false;
+    if (isAdmin) return true;
+    if (isNonUser && key.startsWith("expenses.")) return true;
+    return permissions.includes(key);
+  };
 
   const segments = location.pathname.toLowerCase().split("/").filter(Boolean);
   const hasSegment = (path) => segments.includes(path.toLowerCase());
@@ -83,7 +99,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
       <div className="sidebar-header">
         {collapsed
           ? (isCashier ? "SC" : isNonUser ? "NGP" : "SE")
-          : (isCashier ? "✦ Shiva Cashier" : isNonUser ? "⚡ Non-GST Panel" : "✦ Shiva Admin")}
+          : (isCashier ? "✦ Shiva Cashier" : isNonUser ? "⚡ Non-GST Panel" : isSuperAdmin ? "✦ Super Admin" : "✦ Shiva Admin")}
       </div>
 
       {isCashier ? (
@@ -309,10 +325,12 @@ const SidebarContent = ({ close, collapsed = false }) => {
                   onClick={() => { navigate("sales-persons"); close && close(); }}>
                   <FaUsers /> <span>Sales Persons</span>
                 </NavItem>
-                <NavItem className={`submenu-item ${isActive("sales-person-report") ? "active" : ""}`}
-                  onClick={() => { navigate("sales-person-report"); close && close(); }}>
-                  <FaChartBar /> <span>Sales Person Report</span>
-                </NavItem>
+                {isSuperAdmin && (
+                  <NavItem className={`submenu-item ${isActive("sales-person-report") ? "active" : ""}`}
+                    onClick={() => { navigate("sales-person-report"); close && close(); }}>
+                    <FaChartBar /> <span>Sales Person Report</span>
+                  </NavItem>
+                )}
               </>
             )}
           </div>
@@ -407,8 +425,8 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </NavItem>
         )}
 
-        {/* 13. Reports */}
-        {hasPermission("reports.view") && (
+        {/* 13. Reports (Super Admin only) */}
+        {!isNonUser && !isCashier && isSuperAdmin && hasPermission("reports.view") && (
         <>
         <NavItem className={`menu-item ${isReportsActive ? "active" : ""}`}
           onClick={() => toggleMenu("reports")}>
@@ -475,8 +493,8 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </NavItem>
         )}
 
-        {/* Quotations (GST only) */}
-        {!isNonUser && hasPermission("quotations.view") && (
+        {/* Quotations (Super Admin only) */}
+        {!isNonUser && !isCashier && isSuperAdmin && hasPermission("quotations.view") && (
         <>
         <NavItem className={`menu-item ${isQuotationsActive ? "active" : ""}`}
           onClick={() => toggleMenu("quotations")}>
@@ -495,8 +513,8 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </>
         )}
 
-        {/* Business Location (GST only) */}
-        {!isNonUser && !isCashier && hasPermission("business_location.view") && (
+        {/* Business Location (Super Admin only) */}
+        {!isNonUser && !isCashier && isSuperAdmin && hasPermission("business_location.view") && (
         <>
         <NavItem className={`menu-item ${isBusinessLocationActive ? "active" : ""}`}
           onClick={() => toggleMenu("businesslocation")}>
@@ -515,8 +533,8 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </>
         )}
 
-        {/* Branch Management (GST only) */}
-        {!isNonUser && !isCashier && hasPermission("branches.view") && (
+        {/* Branch Management (Super Admin only) */}
+        {!isNonUser && !isCashier && isSuperAdmin && hasPermission("branches.view") && (
         <NavItem className={`menu-item ${isActive("branches") ? "active" : ""}`}
           onClick={() => { navigate("branches"); close && close(); }}>
           <FaCodeBranch className="menu-icon" />
@@ -533,8 +551,8 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </NavItem>
         )}
 
-        {/* User Management (GST only) */}
-        {!isNonUser && !isCashier && hasPermission("users.view") && (
+        {/* User Management (Super Admin only) */}
+        {!isNonUser && !isCashier && isSuperAdmin && hasPermission("users.view") && (
         <NavItem className={`menu-item ${isActive("userManagement") ? "active" : ""}`}
           onClick={() => { navigate("userManagement"); close && close(); }}>
           <FaUserShield className="menu-icon" />

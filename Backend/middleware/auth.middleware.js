@@ -3,14 +3,24 @@ const db = require("../config/db");
 
 const JWT_SECRET = process.env.JWT_SECRET || "anantham_nursery_secret_2026";
 
-function isNonUser(user) {
+function isUserAdmin(user) {
   if (!user) return false;
   const roleName = String(user.role_name || "").toLowerCase().trim();
+  const roleId = Number(user.role_id);
+  const userId = Number(user.id);
+  return roleName.includes("admin") || roleId === 1 || roleId === 5 || userId === 1;
+}
+
+function isNonUser(user) {
+  if (!user) return false;
+  if (isUserAdmin(user)) return false;
+  const roleName = String(user.role_name || "").toLowerCase().trim();
+  const roleId = Number(user.role_id);
   return (
     roleName === "non user" ||
     roleName === "non_user" ||
     roleName === "nonuser" ||
-    Number(user.role_id) === 6
+    roleId === 6
   );
 }
 
@@ -33,6 +43,9 @@ const authenticate = (req, res, next) => {
 };
 
 const blockNonUserFromGst = (req, res, next) => {
+  if (req.user && isUserAdmin(req.user)) {
+    return next();
+  }
   if (req.user && isNonUser(req.user)) {
     return res.status(403).json({
       message: "Access denied: GST module is not available for Non-GST role",
@@ -47,7 +60,7 @@ const authorize = (...requiredPermissions) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    if (req.user.role_name === "Admin" || String(req.user.role_name).toLowerCase() === "super admin") return next();
+    if (isUserAdmin(req.user)) return next();
     if (!requiredPermissions.length) return next();
 
     db.query(
@@ -72,7 +85,7 @@ const authorize = (...requiredPermissions) => {
 const branchFilter = (req, res, next) => {
   if (!req.user) return next();
 
-  if (req.user.role_name === "Admin" || String(req.user.role_name).toLowerCase() === "super admin") {
+  if (isUserAdmin(req.user)) {
     const qb = req.query.branch_id || req.headers["x-active-branch"];
     req.branchId = qb ? parseInt(qb, 10) : null;
     req.branchIds = null; 
@@ -109,6 +122,6 @@ module.exports = {
   branchFilter,
   blockNonUserFromGst,
   isNonUser,
+  isUserAdmin,
   JWT_SECRET,
 };
-

@@ -35,6 +35,8 @@ router.delete("/designations/:id", authorize("hrms.settings.edit"), hrmsCtrl.del
 // 4. Attendance
 router.get("/attendance", hrmsCtrl.listAttendance);
 router.post("/attendance", authorize("hrms.attendance.manage"), hrmsCtrl.recordAttendance);
+router.put("/attendance/:id", authorize("hrms.attendance.manage"), hrmsCtrl.updateAttendance);
+router.patch("/attendance/:id", authorize("hrms.attendance.manage"), hrmsCtrl.updateAttendance);
 router.get("/attendance/calendar", authorize("hrms.view"), hrmsCtrl.getAttendanceCalendar);
 
 // 5. Leaves
@@ -67,6 +69,6 @@ router.post("/recruitment/candidates", authorize("hrms.settings.edit"), hrmsCtrl
 router.put("/recruitment/candidates/:id/status", authorize("hrms.settings.edit"), hrmsCtrl.updateCandidateStatus);
 
 // 11. Reports & Exports
-router.get("/reports", authorize("hrms.reports.view"), hrmsCtrl.getHrmsReport);
+router.get("/reports", authorize("hrms.view"), hrmsCtrl.getHrmsReport);
 
 module.exports = router;

@@ -45,8 +45,24 @@ export const getUser = () => {
 export const hasPermission = (key) => {
   const user = getUser();
   if (!user) return false;
-  if (user.role_name === "Admin" || user.role_name?.toLowerCase() === "super admin") return true;
-  const isNonUser = user.role_name?.toLowerCase().includes("non user") || user.role_id === 6;
+  const roleLower = String(user.role_name || "").toLowerCase().trim();
+  const isSuperAdmin = roleLower === "super admin" || user.role_id === 5;
+  if (isSuperAdmin) return true;
+
+  // Confidential modules restricted to Super Admin only:
+  if (
+    key.startsWith("reports.") ||
+    key.startsWith("quotations.") ||
+    key.startsWith("business_location.") ||
+    key.startsWith("branches.") ||
+    key.startsWith("users.")
+  ) {
+    return false;
+  }
+
+  const isAdmin = roleLower.includes("admin") || user.role_id === 1 || user.id === 1;
+  if (isAdmin) return true;
+  const isNonUser = roleLower.includes("non user") || user.role_id === 6;
   if (isNonUser && key.startsWith("expenses.")) return true;
   return (user.permissions || []).includes(key);
 };

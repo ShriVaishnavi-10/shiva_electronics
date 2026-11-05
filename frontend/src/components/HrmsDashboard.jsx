@@ -6,21 +6,15 @@ import {
   CreditCard, TrendingUp, Receipt, UserPlus, FileText,
   UserCheck, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight,
   Shield, Bell, Sparkles, Store, Search, CheckCircle2,
-  Play, Square
+  Play, Square, ChevronDown, BarChart2, ClipboardList, UserCog
 } from 'lucide-react';
 
 // Import Modular Tab Components
 import HrmsOverviewTab from './hrms/HrmsOverviewTab';
 import HrmsDirectoryTab from './hrms/HrmsDirectoryTab';
-import HrmsDepartmentsTab from './hrms/HrmsDepartmentsTab';
 import HrmsAttendanceTab from './hrms/HrmsAttendanceTab';
 import HrmsLeavesTab from './hrms/HrmsLeavesTab';
-import HrmsPayrollTab from './hrms/HrmsPayrollTab';
-import HrmsPerformanceTab from './hrms/HrmsPerformanceTab';
-import HrmsExpensesTab from './hrms/HrmsExpensesTab';
-import HrmsRecruitmentTab from './hrms/HrmsRecruitmentTab';
 import HrmsReportsTab from './hrms/HrmsReportsTab';
-import HrmsEssTab from './hrms/HrmsEssTab';
 
 import '../style/HrmsTheme.css';
 
@@ -28,16 +22,17 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
-  { id: 'attendance', label: 'My Attendance', icon: Clock, badge: null },
-  { id: 'reports', label: 'Reports', icon: FileText, badge: null },
-  { id: 'leaves', label: 'Leave', icon: Calendar, badge: 'leaves' },
-  { id: 'payroll', label: 'Payroll & Payslip', icon: CreditCard, badge: null },
+  { id: 'attendance', label: 'Attendance', icon: Clock, badge: null },
   { id: 'directory', label: 'Employee Directory', icon: Users, badge: null },
-  { id: 'departments', label: 'Departments & Roles', icon: Building2, badge: null },
-  { id: 'performance', label: 'Sales & Commissions', icon: TrendingUp, badge: 'ERP' },
-  { id: 'expenses', label: 'Claims & Advances', icon: Receipt, badge: null },
-  { id: 'recruitment', label: 'Recruitment & Jobs', icon: UserPlus, badge: null },
-  { id: 'selfservice', label: 'Employee Self-Service', icon: UserCheck, badge: 'ESS' }
+  { id: 'leaves', label: 'Leave', icon: Calendar, badge: 'leaves' },
+  { id: 'reports', label: 'Reports', icon: FileText, badge: null }
+];
+
+const REPORT_SUB_ITEMS = [
+  { id: 'muster',     label: 'Monthly Attendance Summary', icon: BarChart2 },
+  { id: 'attendance', label: 'Attendance Register',         icon: ClipboardList },
+  { id: 'leaves',     label: 'Leave Audit Report',          icon: CheckCircle2 },
+  { id: 'employees',  label: 'Staff Master Directory',      icon: UserCog }
 ];
 
 export default function HrmsDashboard() {
@@ -63,6 +58,9 @@ export default function HrmsDashboard() {
   const [jobOpenings, setJobOpenings] = useState([]);
   const [candidates, setCandidates] = useState([]);
 
+  // Dashboard active attendance date
+  const [dashboardDate, setDashboardDate] = useState(() => new Date().toISOString().slice(0, 10));
+
   // Logged in user & active branch
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -82,16 +80,21 @@ export default function HrmsDashboard() {
   const defaultTab = 'dashboard';
   const activeTab = tab || defaultTab;
 
+  const validTabs = ['dashboard', 'attendance', 'directory', 'leaves', 'reports'];
   useEffect(() => {
-    if (isStaff && (!tab || ['directory', 'departments', 'recruitment'].includes(tab))) {
+    if (tab && !validTabs.includes(tab)) {
       navigate('/hrms/dashboard', { replace: true });
     }
-  }, [isStaff, tab, navigate]);
+  }, [tab, navigate]);
 
   // Live Header Punch Station State
   const [currentTime, setCurrentTime] = useState(new Date());
   const [headerPunching, setHeaderPunching] = useState(false);
   const [localHeaderPunch, setLocalHeaderPunch] = useState(null);
+
+  // Reports sub-section state
+  const [activeReportType, setActiveReportType] = useState('muster');
+  const [reportsExpanded, setReportsExpanded] = useState(true);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -188,10 +191,7 @@ export default function HrmsDashboard() {
     }
   };
 
-  const permittedNavItems = NAV_ITEMS.filter(item => {
-    if (!isStaff) return true;
-    return ['dashboard', 'attendance', 'reports', 'leaves', 'payroll'].includes(item.id);
-  });
+  const permittedNavItems = NAV_ITEMS;
 
   const getHeaders = () => {
     const token = localStorage.getItem('token');
@@ -202,13 +202,31 @@ export default function HrmsDashboard() {
     return h;
   };
 
-  const fetchAllHrmsData = useCallback(async () => {
+  const fetchDashboardSummary = useCallback(async (targetDate = dashboardDate) => {
+    try {
+      const headers = getHeaders();
+      const res = await axios.get(`${BACKEND_URL}/api/hrms/dashboard-summary`, {
+        params: { date: targetDate },
+        headers
+      });
+      if (res.data?.success && res.data.data) {
+        setStats(res.data.data);
+      }
+    } catch (e) {
+      console.warn('Dashboard summary fetch error:', e);
+    }
+  }, [dashboardDate]);
+
+  const fetchAllHrmsData = useCallback(async (targetDate = dashboardDate) => {
     setLoading(true);
     setError(null);
     const headers = getHeaders();
 
     try {
-      const summaryPromise = axios.get(`${BACKEND_URL}/api/hrms/dashboard-summary`, { headers }).catch(e => ({ data: { data: {} } }));
+      const summaryPromise = axios.get(`${BACKEND_URL}/api/hrms/dashboard-summary`, {
+        params: { date: targetDate || dashboardDate },
+        headers
+      }).catch(e => ({ data: { data: {} } }));
       const empPromise = axios.get(`${BACKEND_URL}/api/hrms/employees`, { headers }).catch(e => ({ data: { data: [] } }));
       const deptPromise = axios.get(`${BACKEND_URL}/api/hrms/departments`, { headers }).catch(e => ({ data: { data: [] } }));
       const desigPromise = axios.get(`${BACKEND_URL}/api/hrms/designations`, { headers }).catch(e => ({ data: { data: [] } }));
@@ -249,7 +267,7 @@ export default function HrmsDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dashboardDate]);
 
   useEffect(() => {
     fetchAllHrmsData();
@@ -259,16 +277,20 @@ export default function HrmsDashboard() {
     navigate(`/hrms/${newTab}`);
   };
 
-  const handleQuickAttendance = async (employeeId, status) => {
+  const handleQuickAttendance = async (employeeId, status, targetDate = dashboardDate, checkInTime = null) => {
     try {
       const headers = getHeaders();
+      const dateToUse = targetDate || dashboardDate;
+      const nowTime = new Date().toTimeString().slice(0, 5);
       await axios.post(`${BACKEND_URL}/api/hrms/attendance`, {
         employee_id: employeeId,
-        date: new Date().toISOString().slice(0, 10),
-        status: status.toUpperCase(),
-        check_in: new Date().toTimeString().slice(0, 5)
+        date: dateToUse,
+        status: status,
+        check_in: status === 'Absent' ? null : (checkInTime || nowTime)
       }, { headers });
-      fetchAllHrmsData();
+      fetchDashboardSummary(dateToUse);
+      const attRes = await axios.get(`${BACKEND_URL}/api/hrms/attendance`, { headers }).catch(() => null);
+      if (attRes?.data?.data) setAttendanceData(attRes.data.data);
     } catch (e) {
       alert(e.response?.data?.message || 'Failed to record attendance');
     }
@@ -426,59 +448,129 @@ export default function HrmsDashboard() {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             const badgeValue = item.badge === 'leaves' ? pendingLeavesCount : item.badge;
+            const isReports = item.id === 'reports';
 
             return (
-              <button
-                key={item.id}
-                onClick={() => handleTabChange(item.id)}
-                className={`hrms-menu-item ${isActive ? 'active' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  width: '100%',
-                  textAlign: 'left',
-                  gap: '12px',
-                  padding: sidebarCollapsed ? '12px 0' : '12px 16px',
-                  justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                  marginBottom: '6px',
-                  borderRadius: '12px',
-                  fontSize: '14.5px',
-                  fontWeight: isActive ? 800 : 600,
-                  cursor: 'pointer',
-                  background: isActive ? 'linear-gradient(135deg, #FFD700 0%, #D49A00 100%)' : 'transparent',
-                  color: isActive ? '#08090D' : '#e2e8f0',
-                  border: isActive ? '1px solid #FFD700' : '1px solid transparent',
-                  boxShadow: isActive ? '0 4px 15px rgba(255, 215, 0, 0.35)' : 'none',
-                  transition: 'all 0.18s ease'
-                }}
-                title={sidebarCollapsed ? item.label : undefined}
-              >
-                <Icon
-                  className="hrms-menu-icon"
-                  size={19}
-                  style={{ color: isActive ? '#08090D' : '#FFD700', flexShrink: 0 }}
-                />
-                {!sidebarCollapsed && (
-                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '0.2px' }}>
-                    {item.label}
-                  </span>
-                )}
-                {!sidebarCollapsed && badgeValue && (
-                  <span
+              <div key={item.id}>
+                {/* Main Nav Button */}
+                <button
+                  onClick={() => {
+                    if (isReports) {
+                      // clicking Reports: navigate there AND toggle sub-menu
+                      handleTabChange(item.id);
+                      setReportsExpanded((prev) => (activeTab === 'reports' ? !prev : true));
+                    } else {
+                      handleTabChange(item.id);
+                    }
+                  }}
+                  className={`hrms-menu-item ${isActive ? 'active' : ''}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    width: '100%',
+                    textAlign: 'left',
+                    gap: '12px',
+                    padding: sidebarCollapsed ? '12px 0' : '12px 16px',
+                    justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                    marginBottom: isReports && !sidebarCollapsed && reportsExpanded && activeTab === 'reports' ? '2px' : '6px',
+                    borderRadius: '12px',
+                    fontSize: '14.5px',
+                    fontWeight: isActive ? 800 : 600,
+                    cursor: 'pointer',
+                    background: isActive ? 'linear-gradient(135deg, #FFD700 0%, #D49A00 100%)' : 'transparent',
+                    color: isActive ? '#08090D' : '#e2e8f0',
+                    border: isActive ? '1px solid #FFD700' : '1px solid transparent',
+                    boxShadow: isActive ? '0 4px 15px rgba(255, 215, 0, 0.35)' : 'none',
+                    transition: 'all 0.18s ease'
+                  }}
+                  title={sidebarCollapsed ? item.label : undefined}
+                >
+                  <Icon
+                    className="hrms-menu-icon"
+                    size={19}
+                    style={{ color: isActive ? '#08090D' : '#FFD700', flexShrink: 0 }}
+                  />
+                  {!sidebarCollapsed && (
+                    <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '0.2px' }}>
+                      {item.label}
+                    </span>
+                  )}
+                  {!sidebarCollapsed && badgeValue && (
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        padding: '3px 8px',
+                        borderRadius: '10px',
+                        background: isActive ? '#08090D' : 'rgba(255, 215, 0, 0.18)',
+                        color: isActive ? '#FFD700' : '#FFD700',
+                        border: '1px solid rgba(255, 215, 0, 0.35)'
+                      }}
+                    >
+                      {badgeValue}
+                    </span>
+                  )}
+                  {/* Chevron expand/collapse for Reports */}
+                  {!sidebarCollapsed && isReports && (
+                    <ChevronDown
+                      size={15}
+                      style={{
+                        color: isActive ? '#08090D' : '#94a3b8',
+                        transform: (reportsExpanded && activeTab === 'reports') ? 'rotate(0deg)' : 'rotate(-90deg)',
+                        transition: 'transform 0.2s ease',
+                        flexShrink: 0
+                      }}
+                    />
+                  )}
+                </button>
+
+                {/* Sub-items under Reports */}
+                {isReports && !sidebarCollapsed && reportsExpanded && activeTab === 'reports' && (
+                  <div
                     style={{
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      padding: '3px 8px',
-                      borderRadius: '10px',
-                      background: isActive ? '#08090D' : 'rgba(255, 215, 0, 0.18)',
-                      color: isActive ? '#FFD700' : '#FFD700',
-                      border: '1px solid rgba(255, 215, 0, 0.35)'
+                      marginLeft: '14px',
+                      paddingLeft: '12px',
+                      borderLeft: '2px solid rgba(255, 215, 0, 0.25)',
+                      marginBottom: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px'
                     }}
                   >
-                    {badgeValue}
-                  </span>
+                    {REPORT_SUB_ITEMS.map((sub) => {
+                      const SubIcon = sub.icon;
+                      const isSubActive = activeReportType === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => setActiveReportType(sub.id)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            width: '100%',
+                            textAlign: 'left',
+                            padding: '9px 12px',
+                            borderRadius: '8px',
+                            fontSize: '13.5px',
+                            fontWeight: isSubActive ? 700 : 500,
+                            cursor: 'pointer',
+                            background: isSubActive ? 'rgba(255, 215, 0, 0.14)' : 'transparent',
+                            color: isSubActive ? '#FFD700' : '#94a3b8',
+                            border: isSubActive ? '1px solid rgba(255, 215, 0, 0.3)' : '1px solid transparent',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <SubIcon size={15} style={{ flexShrink: 0 }} />
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {sub.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-              </button>
+              </div>
             );
           })}
         </nav>
@@ -538,7 +630,9 @@ export default function HrmsDashboard() {
                 <h1 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#f8fafc' }}>
                   {isStaff && activeTab === 'dashboard'
                     ? 'Personal Dashboard'
-                    : (NAV_ITEMS.find(n => n.id === activeTab)?.label || 'HRMS Workspace')}
+                    : activeTab === 'reports'
+                      ? (REPORT_SUB_ITEMS.find(r => r.id === activeReportType)?.label || 'Reports')
+                      : (NAV_ITEMS.find(n => n.id === activeTab)?.label || 'HRMS Workspace')}
                 </h1>
                 <span
                   style={{
@@ -555,147 +649,37 @@ export default function HrmsDashboard() {
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: '11.5px', color: '#94a3b8' }}>
-                {isStaff ? 'Personal Attendance, Invoices, Performance & Payroll' : 'Human Resource Management System & Workforce Operations'}
+                'Workforce Attendance, Directory, Leaves & Reports'
               </p>
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            {/* Header Punch Station: Check In / Check Out */}
+            {/* Live Digital Clock */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '4px 6px 4px 12px',
-                borderRadius: '24px',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '20px',
                 background: '#060810',
                 border: '1px solid rgba(255, 215, 0, 0.3)',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Clock size={13} style={{ color: '#FFD700' }} />
-                <span
-                  style={{
-                    color: '#f8fafc',
-                    fontFamily: 'monospace',
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </span>
-              </div>
-
-              {!todayPunch?.check_in ? (
-                <button
-                  onClick={() => handleHeaderPunch('CLOCK_IN')}
-                  disabled={headerPunching}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    padding: '5px 14px',
-                    borderRadius: '18px',
-                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                    color: '#FFFFFF',
-                    fontWeight: 800,
-                    fontSize: '11.5px',
-                    border: 'none',
-                    cursor: headerPunching ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
-                    transition: 'all 0.15s ease',
-                  }}
-                  title="Punch Check-In for today"
-                >
-                  <Play size={11} fill="#FFFFFF" />
-                  <span>{headerPunching ? 'Recording...' : 'Check In'}</span>
-                </button>
-              ) : !todayPunch?.check_out ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      color: '#34D399',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
-                    }}
-                    title={`Clocked in at ${todayPunch.check_in}`}
-                  >
-                    In: {String(todayPunch.check_in || '').slice(0, 5)}
-                  </span>
-                  <button
-                    onClick={() => handleHeaderPunch('CLOCK_OUT')}
-                    disabled={headerPunching}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '5px 14px',
-                      borderRadius: '18px',
-                      background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
-                      color: '#FFFFFF',
-                      fontWeight: 800,
-                      fontSize: '11.5px',
-                      border: 'none',
-                      cursor: headerPunching ? 'not-allowed' : 'pointer',
-                      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
-                      transition: 'all 0.15s ease',
-                    }}
-                    title="Punch Check-Out to conclude today's shift"
-                  >
-                    <Square size={10} fill="#FFFFFF" />
-                    <span>{headerPunching ? 'Recording...' : 'Check Out'}</span>
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '4px 10px',
-                      borderRadius: '18px',
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      border: '1px solid rgba(16, 185, 129, 0.35)',
-                      color: '#34D399',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                    }}
-                    title={`Shift: ${String(todayPunch.check_in || '').slice(0, 5)} to ${String(todayPunch.check_out || '').slice(0, 5)}`}
-                  >
-                    <CheckCircle2 size={12} style={{ color: '#34D399' }} />
-                    <span>Shift Done ({String(todayPunch.check_in || '').slice(0, 5)} - {String(todayPunch.check_out || '').slice(0, 5)})</span>
-                  </div>
-                  <button
-                    onClick={() => handleHeaderPunch('CLOCK_IN')}
-                    disabled={headerPunching}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '4px 10px',
-                      borderRadius: '16px',
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      color: '#E2E8F0',
-                      fontSize: '10.5px',
-                      fontWeight: 700,
-                      cursor: headerPunching ? 'not-allowed' : 'pointer'
-                    }}
-                    title="Punch In Again to resume shift"
-                  >
-                    <Play size={10} fill="#E2E8F0" />
-                    <span>{headerPunching ? '...' : 'Punch In Again'}</span>
-                  </button>
-                </div>
-              )}
+              <Clock size={13} style={{ color: '#FFD700' }} />
+              <span
+                style={{
+                  color: '#f8fafc',
+                  fontFamily: 'monospace',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
             </div>
 
             {/* Quick Refresh */}
@@ -764,36 +748,25 @@ export default function HrmsDashboard() {
 
           {/* Module Views */}
           {activeTab === 'dashboard' && (
-            isStaff ? (
-              <HrmsEssTab
-                currentUser={currentUser}
-                employees={employees}
-                attendanceData={attendanceData}
-                leavesData={leavesData}
-                payrollData={payrollData}
-                performanceData={performanceData}
-                expensesData={expensesData}
-                advancesData={advancesData}
-                onRefresh={fetchAllHrmsData}
-                onPunchSuccess={(p) => setLocalHeaderPunch(p)}
-              />
-            ) : (
-              <HrmsOverviewTab
-                stats={stats}
-                dashboardData={stats}
-                loading={loading}
-                fetchDashboardData={fetchAllHrmsData}
-                employees={employees}
-                attendanceData={attendanceData}
-                leavesData={leavesData}
-                payrollData={payrollData}
-                departments={departments}
-                onNavigate={handleTabChange}
-                setActiveTab={handleTabChange}
-                onRefresh={fetchAllHrmsData}
-                handleQuickStatusChange={handleQuickAttendance}
-              />
-            )
+            <HrmsOverviewTab
+              stats={stats}
+              dashboardData={stats}
+              loading={loading}
+              fetchDashboardData={fetchDashboardSummary}
+              attendanceDate={dashboardDate}
+              setAttendanceDate={(d) => {
+                setDashboardDate(d);
+                fetchDashboardSummary(d);
+              }}
+              employees={employees}
+              attendanceData={attendanceData}
+              leavesData={leavesData}
+              departments={departments}
+              onNavigate={handleTabChange}
+              setActiveTab={handleTabChange}
+              onRefresh={() => fetchAllHrmsData(dashboardDate)}
+              handleQuickStatusChange={handleQuickAttendance}
+            />
           )}
 
           {activeTab === 'directory' && (
@@ -805,101 +778,38 @@ export default function HrmsDashboard() {
             />
           )}
 
-          {activeTab === 'departments' && (
-            <HrmsDepartmentsTab
-              departments={departments}
-              designations={designations}
-              employees={employees}
-              onRefresh={fetchAllHrmsData}
-            />
-          )}
-
           {activeTab === 'attendance' && (
             <HrmsAttendanceTab
-              employees={isStaff ? (currentEmp?.id ? [currentEmp] : employees) : employees}
-              attendanceData={isStaff && currentEmp?.id ? attendanceData.filter(a => a.employee_id === currentEmp.id) : attendanceData}
+              employees={employees}
+              attendanceData={attendanceData}
               departments={departments}
               onRefresh={fetchAllHrmsData}
               currentUser={currentUser}
-              isStaff={isStaff}
+              isStaff={false}
             />
           )}
 
           {activeTab === 'leaves' && (
             <HrmsLeavesTab
-              employees={isStaff ? (currentEmp?.id ? [currentEmp] : employees) : employees}
-              leavesData={isStaff && currentEmp?.id ? leavesData.filter(l => l.employee_id === currentEmp.id) : leavesData}
+              employees={employees}
+              leavesData={leavesData}
               currentUser={currentUser}
               onRefresh={fetchAllHrmsData}
               isStaff={isStaff}
-            />
-          )}
-
-          {activeTab === 'payroll' && (
-            <HrmsPayrollTab
-              employees={isStaff ? (currentEmp?.id ? [currentEmp] : employees) : employees}
-              payrollData={isStaff && currentEmp?.id ? payrollData.filter(p => p.employee_id === currentEmp.id) : payrollData}
-              onRefresh={fetchAllHrmsData}
-              currentUser={currentUser}
-              isStaff={isStaff}
-            />
-          )}
-
-          {activeTab === 'performance' && (
-            <HrmsPerformanceTab
-              performanceData={performanceData}
-              incentiveRules={incentiveRules}
-              employees={employees}
-              onRefresh={fetchAllHrmsData}
-            />
-          )}
-
-          {activeTab === 'expenses' && (
-            <HrmsExpensesTab
-              employees={employees}
-              expensesData={expensesData}
-              advancesData={advancesData}
-              onRefresh={fetchAllHrmsData}
-            />
-          )}
-
-          {activeTab === 'recruitment' && (
-            <HrmsRecruitmentTab
-              jobOpenings={jobOpenings}
-              candidates={candidates}
-              departments={departments}
-              onRefresh={fetchAllHrmsData}
             />
           )}
 
           {activeTab === 'reports' && (
             <HrmsReportsTab
-              employees={isStaff ? (currentEmp?.id ? [currentEmp] : employees) : employees}
-              attendanceData={isStaff && currentEmp?.id ? attendanceData.filter(a => a.employee_id === currentEmp.id) : attendanceData}
-              payrollData={isStaff && currentEmp?.id ? payrollData.filter(p => p.employee_id === currentEmp.id) : payrollData}
-              performanceData={isStaff && currentEmp?.id ? performanceData.filter(p => p.employee_id === currentEmp.id) : performanceData}
-              expensesData={expensesData}
+              employees={employees}
+              attendanceData={attendanceData}
               departments={departments}
               currentUser={currentUser}
               isStaff={isStaff}
+              initialReportType={activeReportType}
+              onReportTypeChange={setActiveReportType}
             />
-          )}
-
-          {activeTab === 'selfservice' && (
-            <HrmsEssTab
-              currentUser={currentUser}
-              employees={employees}
-              attendanceData={attendanceData}
-              leavesData={leavesData}
-              payrollData={payrollData}
-              performanceData={performanceData}
-              expensesData={expensesData}
-              advancesData={advancesData}
-              onRefresh={fetchAllHrmsData}
-              onPunchSuccess={(p) => setLocalHeaderPunch(p)}
-            />
-          )}
-        </div>
+          )}</div>
       </main>
     </div>
   );
