@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FaUserFriends,
   FaPlus,
@@ -35,6 +35,17 @@ import { Spinner } from "reactstrap";
 
 const CrmLeadsList = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
+  const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || storedUser.id === 1;
+  const isSalesStaff = !isAdmin;
+
+  const initialAssigned = searchParams.get("assigned_to") || (isSalesStaff ? "me" : "All");
+  const [assignedFilter, setAssignedFilter] = useState(initialAssigned);
+  const [myAllocatedCount, setMyAllocatedCount] = useState(0);
+  const [employees, setEmployees] = useState([]);
 
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,10 +73,16 @@ const CrmLeadsList = () => {
     followup_type: "Phone Call",
     priority: "Medium",
     next_followup_date: "",
-    scheduled_time: "10:30",
+    scheduled_time: "",
     discussion_remarks: ""
   });
   const [savingFollowup, setSavingFollowup] = useState(false);
+
+  useEffect(() => {
+    api.get("/crm/leads/employees")
+      .then(res => setEmployees(res.data?.data || []))
+      .catch(() => {});
+  }, []);
 
   // Pagination & Show Entries
   const [page, setPage] = useState(1);
@@ -92,6 +109,7 @@ const CrmLeadsList = () => {
           startDate: startDate || undefined,
           endDate: endDate || undefined,
           dateField,
+          assigned_to: assignedFilter !== "All" ? assignedFilter : undefined,
           page,
           limit
         }
@@ -99,6 +117,9 @@ const CrmLeadsList = () => {
       if (res.data) {
         setLeads(res.data.data || []);
         setTotal(res.data.total || 0);
+        if (res.data.myAllocatedCount !== undefined) {
+          setMyAllocatedCount(res.data.myAllocatedCount);
+        }
       }
     } catch (err) {
       console.error("Failed to fetch leads from backend:", err);
@@ -110,7 +131,7 @@ const CrmLeadsList = () => {
 
   useEffect(() => {
     fetchLeads();
-  }, [debouncedSearch, statusFilter, priorityFilter, startDate, endDate, dateField, page, limit]);
+  }, [debouncedSearch, statusFilter, priorityFilter, startDate, endDate, dateField, assignedFilter, page, limit]);
 
   // Reset all filters
   const handleResetFilters = () => {
@@ -121,6 +142,7 @@ const CrmLeadsList = () => {
     setStartDate("");
     setEndDate("");
     setDateField("created_at");
+    setAssignedFilter(isSalesStaff ? "me" : "All");
     setPage(1);
     toast.info("Filters reset");
   };
@@ -130,23 +152,20 @@ const CrmLeadsList = () => {
     statusFilter !== "All" ||
     priorityFilter !== "All" ||
     startDate ||
-    endDate;
+    endDate ||
+    (!isSalesStaff && assignedFilter !== "All");
 
   const totalPages = Math.ceil(total / limit) || 1;
   const paginatedLeads = leads;
 
   const handleOpenFollowupModal = (lead) => {
     setFollowupLead(lead);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const defaultDate = tomorrow.toISOString().slice(0, 10);
 
     setFollowupForm({
-      followup_type: lead.followup_type || "Phone Call",
-      priority: lead.priority || "Medium",
-      next_followup_date: lead.followup_date ? String(lead.followup_date).slice(0, 10) : defaultDate,
-      scheduled_time: lead.followup_time || "10:30",
+      followup_type: "Phone Call",
+      priority: lead?.priority || "Medium",
+      next_followup_date: "",
+      scheduled_time: "",
       discussion_remarks: ""
     });
     setFollowupModal(true);
@@ -269,6 +288,95 @@ const CrmLeadsList = () => {
 
       {/* Filter & Show Entries Card */}
       <div className="crm-card p-3 mb-4" style={{ borderRadius: "14px" }}>
+        {/* Quick Allocation Filter Tabs */}
+        {isAdmin ? (
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 pb-3 mb-3 border-bottom">
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <button
+                onClick={() => {
+                  setAssignedFilter("All");
+                  setPage(1);
+                }}
+                className={`btn btn-sm ${assignedFilter === "All" ? "btn-dark fw-bold text-white shadow-sm" : "btn-light border text-muted"}`}
+                style={{ borderRadius: "20px", fontSize: "12px", padding: "5px 14px" }}
+              >
+                All Leads ({total})
+              </button>
+              <button
+                onClick={() => {
+                  setAssignedFilter("me");
+                  setPage(1);
+                }}
+                className={`btn btn-sm ${assignedFilter === "me" ? "btn-primary fw-bold text-white shadow-sm" : "btn-light border text-primary"}`}
+                style={{
+                  borderRadius: "20px",
+                  fontSize: "12px",
+                  padding: "5px 14px",
+                  background: assignedFilter === "me" ? "linear-gradient(135deg, #2563eb, #1d4ed8)" : undefined
+                }}
+              >
+                ★ My Allocated Leads {myAllocatedCount > 0 ? `(${myAllocatedCount})` : ""}
+              </button>
+              <button
+                onClick={() => {
+                  setAssignedFilter("unassigned");
+                  setPage(1);
+                }}
+                className={`btn btn-sm ${assignedFilter === "unassigned" ? "btn-warning fw-bold text-dark shadow-sm" : "btn-light border text-muted"}`}
+                style={{ borderRadius: "20px", fontSize: "12px", padding: "5px 14px" }}
+              >
+                Unassigned Leads
+              </button>
+            </div>
+
+            {/* Assigned Salesperson Dropdown */}
+            <div className="d-flex align-items-center gap-2">
+              <span className="text-muted fw-semibold" style={{ fontSize: "12px", whiteSpace: "nowrap" }}>Filter By Salesperson:</span>
+              <select
+                className="form-select form-select-sm"
+                style={{ borderRadius: "8px", fontSize: "12px", minWidth: "180px" }}
+                value={assignedFilter}
+                onChange={(e) => {
+                  setAssignedFilter(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="All">All Representatives</option>
+                <option value="me">★ Assigned to Me ({storedUser.name || storedUser.username || "My Leads"})</option>
+                <option value="unassigned">Unassigned Leads</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.name}>
+                    {emp.name} ({emp.employee_code || "Sales"})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : (
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 pb-3 mb-3 border-bottom">
+            <div className="d-flex align-items-center gap-2">
+              <span
+                className="badge d-inline-flex align-items-center gap-1 shadow-sm"
+                style={{
+                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                  color: "#fff",
+                  fontSize: "12.5px",
+                  padding: "7px 15px",
+                  borderRadius: "20px"
+                }}
+              >
+                ★ My Assigned Leads ({total})
+              </span>
+              <span className="text-muted" style={{ fontSize: "12.5px" }}>
+                Only leads assigned to you by Admin are visible.
+              </span>
+            </div>
+            <div className="badge bg-light text-dark border px-3 py-2" style={{ fontSize: "12px" }}>
+              Representative: <strong>{storedUser.displayName || storedUser.name || storedUser.username}</strong>
+            </div>
+          </div>
+        )}
+
         {/* Row 1: Search & Show Entries Dropdown */}
         <div className="row g-2 align-items-center mb-3">
           {/* Show Entries Dropdown */}
@@ -547,11 +655,15 @@ const CrmLeadsList = () => {
                       </td>
                       <td>
                         <div className="fw-medium text-dark">{fullName}</div>
-                        {lead.company_name && (
+                        {(lead.city || lead.address) ? (
+                          <div className="text-muted" style={{ fontSize: "11.5px" }}>
+                            📍 {lead.city || ""}{lead.state ? (lead.city ? `, ${lead.state}` : lead.state) : ""}{lead.pincode ? ` - ${lead.pincode}` : ""}
+                          </div>
+                        ) : lead.company_name ? (
                           <div className="text-muted" style={{ fontSize: "12px" }}>
                             {lead.company_name} {lead.designation && `• ${lead.designation}`}
                           </div>
-                        )}
+                        ) : null}
                         <div className="d-flex align-items-center gap-2 text-muted mt-1" style={{ fontSize: "11.5px" }}>
                           <FaPhoneAlt size={10} />
                           <span>{lead.mobile_number || "-"}</span>
@@ -635,14 +747,16 @@ const CrmLeadsList = () => {
                           >
                             <FaEdit size={12} className="text-primary" />
                           </button>
-                          <button
-                            className="btn btn-sm btn-light border p-1 px-2"
-                            onClick={() => setDeleteTarget(lead)}
-                            title="Delete Lead"
-                            style={{ borderRadius: "6px" }}
-                          >
-                            <FaTrash size={12} className="text-danger" />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              className="btn btn-sm btn-light border p-1 px-2"
+                              onClick={() => setDeleteTarget(lead)}
+                              title="Delete Lead"
+                              style={{ borderRadius: "6px" }}
+                            >
+                              <FaTrash size={12} className="text-danger" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -703,9 +817,9 @@ const CrmLeadsList = () => {
                     <div className="fw-bold text-dark mb-2">Basic & Prospect Info</div>
                     <div><strong>Title:</strong> {viewLead.lead_title}</div>
                     <div><strong>Type:</strong> {viewLead.lead_type || "-"}</div>
-                    <div><strong>Prospect:</strong> {viewLead.first_name} {viewLead.last_name}</div>
-                    <div><strong>Company:</strong> {viewLead.company_name || "-"}</div>
-                    <div><strong>Designation:</strong> {viewLead.designation || "-"}</div>
+                    <div><strong>Prospect:</strong> {viewLead.first_name} {viewLead.last_name || ""}</div>
+                    {viewLead.company_name && <div><strong>Company:</strong> {viewLead.company_name}</div>}
+                    {viewLead.designation && <div><strong>Designation:</strong> {viewLead.designation}</div>}
                   </div>
                 </div>
 
@@ -713,11 +827,26 @@ const CrmLeadsList = () => {
                   <div className="p-3 bg-light rounded" style={{ fontSize: "13px" }}>
                     <div className="fw-bold text-dark mb-2">Contact Details</div>
                     <div><strong>Mobile:</strong> {viewLead.mobile_number}</div>
-                    <div><strong>Email:</strong> {viewLead.email_address || "-"}</div>
                     <div><strong>WhatsApp:</strong> {viewLead.whatsapp_number || "-"}</div>
-                    <div><strong>Website:</strong> {viewLead.website || "-"}</div>
+                    <div><strong>Email:</strong> {viewLead.email_address || "-"}</div>
+                    {viewLead.website && <div><strong>Website:</strong> {viewLead.website}</div>}
                   </div>
                 </div>
+
+                {/* Address Information */}
+                {(viewLead.address || viewLead.city || viewLead.state || viewLead.pincode) && (
+                  <div className="col-12">
+                    <div className="p-3 bg-light rounded" style={{ fontSize: "13px" }}>
+                      <div className="fw-bold text-dark mb-2">Address Information</div>
+                      {viewLead.address && <div><strong>Street Address:</strong> {viewLead.address}</div>}
+                      <div className="row mt-1">
+                        <div className="col-12 col-md-4"><strong>City:</strong> {viewLead.city || "-"}</div>
+                        <div className="col-12 col-md-4"><strong>State:</strong> {viewLead.state || "-"}</div>
+                        <div className="col-12 col-md-4"><strong>Pincode:</strong> {viewLead.pincode || "-"}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="col-12 col-md-6">
                   <div className="p-3 bg-light rounded" style={{ fontSize: "13px" }}>

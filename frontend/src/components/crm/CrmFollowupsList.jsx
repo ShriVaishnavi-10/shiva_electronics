@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FaCalendarCheck,
   FaCalendarPlus,
+  FaCalendarAlt,
+  FaCalendarDay,
+  FaList,
   FaPlus,
   FaSearch,
   FaPhoneAlt,
@@ -22,7 +25,8 @@ import {
   FaFilter,
   FaSyncAlt,
   FaPaperclip,
-  FaBell
+  FaBell,
+  FaCheck
 } from "react-icons/fa";
 import {
   Modal,
@@ -37,94 +41,78 @@ import {
 import { toast } from "react-toastify";
 import api from "../../utils/api";
 
-const defaultSampleFollowups = [
-  {
-    id: 1,
-    followup_id: "FLW-1001",
-    followup_title: "Commercial Air Conditioners Proposal Discussion",
-    related_to: "Lead",
-    entity_name: "Karthik Raja",
-    company_name: "Apex Retail Solutions",
-    mobile_number: "9876543210",
-    followup_type: "Call",
-    followup_date: new Date().toISOString().slice(0, 10),
-    followup_time: "11:30",
-    duration: 20,
-    priority: "High",
-    followup_status: "Pending",
-    discussion_summary: "Discussed cooling capacity requirements for 3 commercial branch showrooms.",
-    customer_requirement: "12 units 2.0 Ton Inverter Cassette AC with installation warranty.",
-    customer_response: "Interested",
-    next_action: "Send revised wholesale quotation before Friday.",
-    attachment_name: "Specification_Sheet_AC.pdf",
-    assigned_to: "Rajesh (SP-002)",
-    created_by: "Administrator",
-    reminder_enabled: true,
-    reminder_before: "15 minutes",
-    next_followup_date: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
-    next_followup_time: "15:00",
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 2,
-    followup_id: "FLW-1002",
-    followup_title: "Smart TV Bulk Order Requirement WhatsApp Follow-up",
-    related_to: "Contact",
-    entity_name: "Suresh Kumar",
-    company_name: "SK Electronics",
-    mobile_number: "9840123456",
-    followup_type: "WhatsApp",
-    followup_date: new Date().toISOString().slice(0, 10),
-    followup_time: "14:15",
-    duration: 10,
-    priority: "Medium",
-    followup_status: "Completed",
-    discussion_summary: "Sent product brochure and promotional dealer pricing for 55-inch 4K UHD LED TVs.",
-    customer_requirement: "50 Units for festive showroom sale.",
-    customer_response: "Interested",
-    next_action: "Call procurement manager on Monday.",
-    attachment_name: "",
-    assigned_to: "Ramesh (SP-001)",
-    created_by: "Administrator",
-    reminder_enabled: true,
-    reminder_before: "30 minutes",
-    next_followup_date: "",
-    next_followup_time: "",
-    created_at: new Date(Date.now() - 86400000).toISOString()
-  },
-  {
-    id: 3,
-    followup_id: "FLW-1003",
-    followup_title: "On-site Factory Facility Visit for Inverter Setup",
-    related_to: "Lead",
-    entity_name: "Vignesh Murugan",
-    company_name: "Murugan Textiles",
-    mobile_number: "9443219870",
-    followup_type: "Site Visit",
-    followup_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
-    followup_time: "10:00",
-    duration: 60,
-    priority: "High",
-    followup_status: "Pending",
-    discussion_summary: "Physical site inspection to verify load distribution and battery backup space.",
-    customer_requirement: "15 KVA 3-phase Solar Hybrid Inverter with tubular batteries.",
-    customer_response: "Need More Time",
-    next_action: "Prepare engineering feasibility report.",
-    attachment_name: "Site_Blueprint.jpg",
-    assigned_to: "Rajesh (SP-002)",
-    created_by: "Administrator",
-    reminder_enabled: true,
-    reminder_before: "1 day",
-    next_followup_date: new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10),
-    next_followup_time: "11:00",
-    created_at: new Date().toISOString()
+// Date formatting helper without timezone drift
+const formatFollowupDate = (dateStr) => {
+  if (!dateStr) return { formatted: "-", day: "", diffDays: null, badge: null };
+  const str = String(dateStr).slice(0, 10);
+  const parts = str.split("-");
+  if (parts.length !== 3) return { formatted: str, day: "", diffDays: null, badge: null };
+
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const d = new Date(year, month, day);
+
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  const formatted = `${String(day).padStart(2, "0")} ${months[month]} ${year}`;
+  const dayName = days[d.getDay()];
+
+  // Compare with local today
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(year, month, day);
+  const diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
+
+  let badge = null;
+  if (diffDays === 0) {
+    badge = { label: "Today", bg: "#fef3c7", color: "#b45309", border: "#fde68a" };
+  } else if (diffDays === 1) {
+    badge = { label: "Tomorrow", bg: "#dbeafe", color: "#1d4ed8", border: "#bfdbfe" };
+  } else if (diffDays === -1) {
+    badge = { label: "Yesterday", bg: "#fee2e2", color: "#b91c1c", border: "#fecaca" };
+  } else if (diffDays < -1) {
+    badge = { label: `${Math.abs(diffDays)}d overdue`, bg: "#fee2e2", color: "#b91c1c", border: "#fecaca" };
+  } else if (diffDays <= 7) {
+    badge = { label: `In ${diffDays} days`, bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" };
+  } else {
+    badge = { label: dayName, bg: "#f1f5f9", color: "#475569", border: "#e2e8f0" };
   }
-];
+
+  return { formatted, day: dayName, diffDays, badge };
+};
+
+// Time formatting helper
+const formatTimeDisplay = (timeStr) => {
+  if (!timeStr) return "Anytime";
+  const str = String(timeStr).trim();
+  const parts = str.split(":");
+  if (parts.length < 2) return str;
+  let h = parseInt(parts[0], 10);
+  const m = parts[1].slice(0, 2);
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${m} ${ampm}`;
+};
 
 const CrmFollowupsList = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  // State
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
+  const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || storedUser.id === 1;
+  const isSalesStaff = !isAdmin;
+
+  const initialAssigned = searchParams.get("assigned_to") || (isSalesStaff ? "me" : "All");
+  const [assignedFilter, setAssignedFilter] = useState(initialAssigned);
+  const [myAllocatedCount, setMyAllocatedCount] = useState(0);
+
+  // View Mode: 'list' or 'calendar'
+  const [viewMode, setViewMode] = useState("list");
+
+  // State for List View
   const [followups, setFollowups] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -135,6 +123,26 @@ const CrmFollowupsList = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
+  // Quick Date Filter Tab: 'All', 'today', 'tomorrow', 'this_week', 'upcoming', 'overdue'
+  const [dateFilter, setDateFilter] = useState("All");
+  const [selectedSpecificDate, setSelectedSpecificDate] = useState("");
+
+  // Live Date Metrics
+  const [dateMetrics, setDateMetrics] = useState({
+    total: 0,
+    today: 0,
+    tomorrow: 0,
+    thisWeek: 0,
+    upcoming: 0,
+    overdue: 0
+  });
+
+  // Calendar State
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [calendarFollowups, setCalendarFollowups] = useState([]);
+  const [loadingCalendar, setLoadingCalendar] = useState(false);
+  const [calendarSelectedDay, setCalendarSelectedDay] = useState(null);
+
   // Pagination
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -142,9 +150,19 @@ const CrmFollowupsList = () => {
   // Modals
   const [viewFollowup, setViewFollowup] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [followupModal, setFollowupModal] = useState(false);
+  const [selectedFollowup, setSelectedFollowup] = useState(null);
+  const [savingFollowup, setSavingFollowup] = useState(false);
+  const [followupForm, setFollowupForm] = useState({
+    followup_type: "Phone Call",
+    priority: "Medium",
+    next_followup_date: "",
+    scheduled_time: "",
+    discussion_remarks: ""
+  });
 
-  // Load from Backend Database API
-  const loadFollowups = async () => {
+  // Load from Backend Database API for Table View
+  const loadFollowups = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get("/crm/followups", {
@@ -155,6 +173,9 @@ const CrmFollowupsList = () => {
           priority: priorityFilter !== "All" ? priorityFilter : undefined,
           fromDate: fromDate || undefined,
           toDate: toDate || undefined,
+          dateFilter: dateFilter !== "All" ? dateFilter : undefined,
+          selectedDate: selectedSpecificDate || undefined,
+          assigned_to: assignedFilter !== "All" ? assignedFilter : undefined,
           page,
           limit
         }
@@ -162,6 +183,12 @@ const CrmFollowupsList = () => {
       if (res.data?.success) {
         setFollowups(res.data.data || []);
         setTotalCount(res.data.total || 0);
+        if (res.data.dateMetrics) {
+          setDateMetrics(res.data.dateMetrics);
+        }
+        if (res.data.myAllocatedCount !== undefined) {
+          setMyAllocatedCount(res.data.myAllocatedCount);
+        }
       }
     } catch (err) {
       console.error("Failed to load follow-ups from backend:", err);
@@ -169,11 +196,44 @@ const CrmFollowupsList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter, typeFilter, priorityFilter, fromDate, toDate, dateFilter, selectedSpecificDate, assignedFilter, page, limit]);
+
+  // Load Calendar Month Follow-ups
+  const loadCalendarMonthData = useCallback(async (targetDate) => {
+    setLoadingCalendar(true);
+    try {
+      const y = targetDate.getFullYear();
+      const m = String(targetDate.getMonth() + 1).padStart(2, "0");
+      const monthStr = `${y}-${m}`;
+
+      const res = await api.get("/crm/followups", {
+        params: {
+          month: monthStr,
+          all: true,
+          status: statusFilter !== "All" ? statusFilter : undefined,
+          type: typeFilter !== "All" ? typeFilter : undefined,
+          assigned_to: assignedFilter !== "All" ? assignedFilter : undefined
+        }
+      });
+      if (res.data?.success) {
+        setCalendarFollowups(res.data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load calendar follow-ups:", err);
+    } finally {
+      setLoadingCalendar(false);
+    }
+  }, [statusFilter, typeFilter, assignedFilter]);
 
   useEffect(() => {
     loadFollowups();
-  }, [search, statusFilter, typeFilter, priorityFilter, fromDate, toDate, page, limit]);
+  }, [loadFollowups]);
+
+  useEffect(() => {
+    if (viewMode === "calendar") {
+      loadCalendarMonthData(calendarDate);
+    }
+  }, [viewMode, calendarDate, loadCalendarMonthData]);
 
   // Total pages
   const totalPages = Math.ceil(totalCount / limit) || 1;
@@ -184,6 +244,17 @@ const CrmFollowupsList = () => {
     setStatusFilter("All");
     setTypeFilter("All");
     setPriorityFilter("All");
+    setFromDate("");
+    setToDate("");
+    setDateFilter("All");
+    setSelectedSpecificDate("");
+    setPage(1);
+  };
+
+  // Quick Date Filter selection
+  const handleSelectDateTab = (tab) => {
+    setDateFilter(tab);
+    setSelectedSpecificDate("");
     setFromDate("");
     setToDate("");
     setPage(1);
@@ -197,6 +268,7 @@ const CrmFollowupsList = () => {
       if (res.data?.success) {
         toast.success(res.data.message || `Follow-up marked as ${newStatus}!`);
         loadFollowups();
+        if (viewMode === "calendar") loadCalendarMonthData(calendarDate);
       }
     } catch (err) {
       console.error("Failed to update status in database:", err);
@@ -213,6 +285,7 @@ const CrmFollowupsList = () => {
         toast.success(res.data.message || "Follow-up deleted successfully from database!");
         setDeleteTarget(null);
         loadFollowups();
+        if (viewMode === "calendar") loadCalendarMonthData(calendarDate);
       }
     } catch (err) {
       console.error("Failed to delete follow-up from database:", err);
@@ -220,7 +293,49 @@ const CrmFollowupsList = () => {
     }
   };
 
-    // Status Badge Colors
+  // Schedule Next Follow-up
+  const handleOpenFollowupModal = (followup) => {
+    setSelectedFollowup(followup);
+    setFollowupForm({
+      followup_type: "Phone Call",
+      priority: followup?.priority || "Medium",
+      next_followup_date: "",
+      scheduled_time: "",
+      discussion_remarks: ""
+    });
+    setFollowupModal(true);
+  };
+
+  const handleSaveFollowup = async (e) => {
+    e.preventDefault();
+    if (!followupForm.next_followup_date) {
+      toast.error("Next follow-up date is required");
+      return;
+    }
+    if (!selectedFollowup?.id) {
+      toast.error("No follow-up selected");
+      return;
+    }
+    setSavingFollowup(true);
+    try {
+      const res = await api.post(`/crm/followups/${selectedFollowup.id}/next-followup`, followupForm);
+      if (res.data?.success) {
+        toast.success(res.data.message || "Next follow-up scheduled successfully!");
+        setFollowupModal(false);
+        loadFollowups();
+        if (viewMode === "calendar") loadCalendarMonthData(calendarDate);
+      } else {
+        toast.error(res.data?.message || "Failed to schedule follow-up");
+      }
+    } catch (err) {
+      console.error("Error scheduling follow-up:", err);
+      toast.error(err.response?.data?.message || "Failed to schedule follow-up");
+    } finally {
+      setSavingFollowup(false);
+    }
+  };
+
+  // Status Badge Colors
   const getStatusBadge = (status) => {
     switch (status) {
       case "Completed":
@@ -239,14 +354,15 @@ const CrmFollowupsList = () => {
   // Priority Badge Colors
   const getPriorityBadge = (priority) => {
     switch (priority) {
+      case "Urgent":
       case "High":
-        return { bg: "#fef2f2", color: "#dc2626" };
+        return { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" };
       case "Medium":
-        return { bg: "#fffbeb", color: "#d97706" };
+        return { bg: "#fffbeb", color: "#d97706", border: "#fde68a" };
       case "Low":
-        return { bg: "#ecfdf5", color: "#059669" };
+        return { bg: "#ecfdf5", color: "#059669", border: "#a7f3d0" };
       default:
-        return { bg: "#f1f5f9", color: "#64748b" };
+        return { bg: "#f1f5f9", color: "#64748b", border: "#e2e8f0" };
     }
   };
 
@@ -254,6 +370,7 @@ const CrmFollowupsList = () => {
   const getTypeIcon = (type) => {
     switch (type) {
       case "Call":
+      case "Phone Call":
         return <FaPhoneAlt size={12} className="text-primary me-1" />;
       case "WhatsApp":
         return <FaWhatsapp size={13} className="text-success me-1" />;
@@ -262,11 +379,119 @@ const CrmFollowupsList = () => {
       case "Meeting":
         return <FaUsers size={12} className="text-info me-1" />;
       case "Site Visit":
+      case "Showroom Demo":
         return <FaMapMarkerAlt size={12} className="text-danger me-1" />;
       default:
         return <FaClock size={12} className="text-muted me-1" />;
     }
   };
+
+  // Calendar Helpers
+  const calendarMonthYearStr = useMemo(() => {
+    const months = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    return `${months[calendarDate.getMonth()]} ${calendarDate.getFullYear()}`;
+  }, [calendarDate]);
+
+  const calendarDaysMatrix = useMemo(() => {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    const startingDayOfWeek = firstDay.getDay(); // 0 is Sunday
+    const totalDaysInMonth = lastDay.getDate();
+
+    // Previous month trailing days
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    const matrix = [];
+
+    let currentWeek = [];
+
+    // Fill previous month days
+    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+      const prevDate = prevMonthLastDay - i;
+      const prevMonth = month === 0 ? 11 : month - 1;
+      const prevYear = month === 0 ? year - 1 : year;
+      const dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, "0")}-${String(prevDate).padStart(2, "0")}`;
+      currentWeek.push({
+        dayNumber: prevDate,
+        dateStr,
+        isCurrentMonth: false
+      });
+    }
+
+    // Fill current month days
+    for (let d = 1; d <= totalDaysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      currentWeek.push({
+        dayNumber: d,
+        dateStr,
+        isCurrentMonth: true
+      });
+      if (currentWeek.length === 7) {
+        matrix.push(currentWeek);
+        currentWeek = [];
+      }
+    }
+
+    // Fill next month days
+    if (currentWeek.length > 0) {
+      let nextDayNum = 1;
+      const nextMonth = month === 11 ? 0 : month + 1;
+      const nextYear = month === 11 ? year + 1 : year;
+      while (currentWeek.length < 7) {
+        const dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-${String(nextDayNum).padStart(2, "0")}`;
+        currentWeek.push({
+          dayNumber: nextDayNum,
+          dateStr,
+          isCurrentMonth: false
+        });
+        nextDayNum++;
+      }
+      matrix.push(currentWeek);
+    }
+
+    return matrix;
+  }, [calendarDate]);
+
+  // Group calendar follow-ups by dateStr
+  const followupsByDate = useMemo(() => {
+    const map = {};
+    calendarFollowups.forEach((f) => {
+      if (!f.followup_date) return;
+      const d = String(f.followup_date).slice(0, 10);
+      if (!map[d]) map[d] = [];
+      map[d].push(f);
+    });
+    return map;
+  }, [calendarFollowups]);
+
+  const handlePrevMonth = () => {
+    setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1));
+  };
+
+  const handleTodayMonth = () => {
+    setCalendarDate(new Date());
+  };
+
+  const handleCalendarDayClick = (dayObj) => {
+    setCalendarSelectedDay(dayObj);
+    setSelectedSpecificDate(dayObj.dateStr);
+    setDateFilter("All");
+    setPage(1);
+  };
+
+  const todayStr = useMemo(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  }, []);
 
   return (
     <div className="crm-content-scroll" style={{ paddingBottom: "60px" }}>
@@ -279,18 +504,54 @@ const CrmFollowupsList = () => {
               <span>Follow-ups Management</span>
             </h2>
             <p className="text-muted mb-0" style={{ fontSize: "13.5px" }}>
-              Schedule, track, and execute customer communication activities seamlessly.
+              Schedule, track, and execute customer follow-up activities date-wise and on interactive calendar.
             </p>
           </div>
 
-          <div className="d-flex align-items-center gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            {/* View Mode Switcher Pill */}
+            <div
+              className="d-inline-flex align-items-center p-1 bg-white border rounded-pill shadow-sm"
+              style={{ fontSize: "12.5px" }}
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={`btn btn-sm rounded-pill px-3 py-1 d-flex align-items-center gap-1 border-0 ${
+                  viewMode === "list"
+                    ? "bg-primary text-white fw-bold shadow-sm"
+                    : "text-muted bg-transparent"
+                }`}
+                style={{ fontSize: "12.5px", transition: "all 0.2s" }}
+              >
+                <FaList size={11} />
+                <span>List View</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("calendar")}
+                className={`btn btn-sm rounded-pill px-3 py-1 d-flex align-items-center gap-1 border-0 ${
+                  viewMode === "calendar"
+                    ? "bg-primary text-white fw-bold shadow-sm"
+                    : "text-muted bg-transparent"
+                }`}
+                style={{ fontSize: "12.5px", transition: "all 0.2s" }}
+              >
+                <FaCalendarAlt size={11} />
+                <span>Calendar View</span>
+              </button>
+            </div>
+
             <button
               className="btn btn-light border d-flex align-items-center gap-2"
-              onClick={loadFollowups}
+              onClick={() => {
+                loadFollowups();
+                if (viewMode === "calendar") loadCalendarMonthData(calendarDate);
+              }}
               title="Refresh Follow-ups"
               style={{ borderRadius: "10px", fontSize: "13px", padding: "8px 14px" }}
             >
-              <FaSyncAlt size={12} />
+              <FaSyncAlt size={12} className={loading || loadingCalendar ? "fa-spin" : ""} />
               <span className="d-none d-sm-inline">Refresh</span>
             </button>
 
@@ -306,11 +567,218 @@ const CrmFollowupsList = () => {
         </div>
       </div>
 
-      {/* Filter & Search Card */}
+      {/* Quick Date-Wise Filter Tabs */}
+      <div className="crm-card p-3 mb-3" style={{ borderRadius: "14px" }}>
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <span className="text-muted fw-bold me-1" style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Date Filter:
+            </span>
+
+            {/* All Records */}
+            <button
+              onClick={() => handleSelectDateTab("All")}
+              className={`btn btn-sm ${
+                dateFilter === "All" && !selectedSpecificDate
+                  ? "btn-dark text-white fw-bold shadow-sm"
+                  : "btn-light border text-muted"
+              }`}
+              style={{ borderRadius: "20px", fontSize: "12px", padding: "5px 14px" }}
+            >
+              All Records ({dateMetrics.total})
+            </button>
+
+            {/* Today */}
+            <button
+              onClick={() => handleSelectDateTab("today")}
+              className={`btn btn-sm ${
+                dateFilter === "today"
+                  ? "btn-primary text-white fw-bold shadow-sm"
+                  : "btn-light border text-dark"
+              }`}
+              style={{
+                borderRadius: "20px",
+                fontSize: "12px",
+                padding: "5px 14px",
+                background: dateFilter === "today" ? "linear-gradient(135deg, #2563eb, #1d4ed8)" : undefined
+              }}
+            >
+              ★ Today ({dateMetrics.today})
+            </button>
+
+            {/* Tomorrow */}
+            <button
+              onClick={() => handleSelectDateTab("tomorrow")}
+              className={`btn btn-sm ${
+                dateFilter === "tomorrow"
+                  ? "btn-info text-white fw-bold shadow-sm"
+                  : "btn-light border text-dark"
+              }`}
+              style={{ borderRadius: "20px", fontSize: "12px", padding: "5px 14px" }}
+            >
+              Tomorrow ({dateMetrics.tomorrow})
+            </button>
+
+            {/* This Week */}
+            <button
+              onClick={() => handleSelectDateTab("this_week")}
+              className={`btn btn-sm ${
+                dateFilter === "this_week"
+                  ? "btn-secondary text-white fw-bold shadow-sm"
+                  : "btn-light border text-muted"
+              }`}
+              style={{ borderRadius: "20px", fontSize: "12px", padding: "5px 14px" }}
+            >
+              This Week ({dateMetrics.thisWeek})
+            </button>
+
+            {/* Upcoming */}
+            <button
+              onClick={() => handleSelectDateTab("upcoming")}
+              className={`btn btn-sm ${
+                dateFilter === "upcoming"
+                  ? "btn-success text-white fw-bold shadow-sm"
+                  : "btn-light border text-success"
+              }`}
+              style={{ borderRadius: "20px", fontSize: "12px", padding: "5px 14px" }}
+            >
+              Upcoming ({dateMetrics.upcoming})
+            </button>
+
+            {/* Overdue */}
+            {dateMetrics.overdue > 0 && (
+              <button
+                onClick={() => handleSelectDateTab("overdue")}
+                className={`btn btn-sm ${
+                  dateFilter === "overdue"
+                    ? "btn-danger text-white fw-bold shadow-sm"
+                    : "btn-outline-danger"
+                }`}
+                style={{ borderRadius: "20px", fontSize: "12px", padding: "5px 14px" }}
+              >
+                ⚠️ Overdue ({dateMetrics.overdue})
+              </button>
+            )}
+
+            {/* If a specific single date was clicked in calendar */}
+            {selectedSpecificDate && (
+              <span
+                className="badge d-inline-flex align-items-center gap-1"
+                style={{
+                  background: "#eff6ff",
+                  color: "#1d4ed8",
+                  border: "1px solid #bfdbfe",
+                  borderRadius: "20px",
+                  padding: "6px 12px",
+                  fontSize: "12px"
+                }}
+              >
+                Selected: <strong>{formatFollowupDate(selectedSpecificDate).formatted}</strong>
+                <button
+                  type="button"
+                  className="btn-close ms-1"
+                  style={{ fontSize: "8px" }}
+                  onClick={() => setSelectedSpecificDate("")}
+                />
+              </span>
+            )}
+          </div>
+
+          <div className="d-flex align-items-center gap-2">
+            <span className="text-muted fw-semibold" style={{ fontSize: "12px" }}>
+              Active View: <strong>{viewMode === "list" ? "Date-Wise Table" : "Monthly Calendar"}</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Filter & Search Card (for Table List) */}
       <div className="crm-card p-3 mb-4" style={{ borderRadius: "14px" }}>
+        {/* Quick Allocation Filter Tabs */}
+        {isAdmin ? (
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 pb-3 mb-3 border-bottom">
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <button
+                onClick={() => {
+                  setAssignedFilter("All");
+                  setPage(1);
+                }}
+                className={`btn btn-sm ${assignedFilter === "All" ? "btn-dark fw-bold text-white shadow-sm" : "btn-light border text-muted"}`}
+                style={{ borderRadius: "20px", fontSize: "12px", padding: "5px 14px" }}
+              >
+                All Follow-ups ({totalCount})
+              </button>
+              <button
+                onClick={() => {
+                  setAssignedFilter("me");
+                  setPage(1);
+                }}
+                className={`btn btn-sm ${assignedFilter === "me" ? "btn-primary fw-bold text-white shadow-sm" : "btn-light border text-primary"}`}
+                style={{
+                  borderRadius: "20px",
+                  fontSize: "12px",
+                  padding: "5px 14px",
+                  background: assignedFilter === "me" ? "linear-gradient(135deg, #2563eb, #1d4ed8)" : undefined
+                }}
+              >
+                ★ My Assigned Follow-ups {myAllocatedCount > 0 ? `(${myAllocatedCount})` : ""}
+              </button>
+              <button
+                onClick={() => {
+                  setAssignedFilter("unassigned");
+                  setPage(1);
+                }}
+                className={`btn btn-sm ${assignedFilter === "unassigned" ? "btn-warning fw-bold text-dark shadow-sm" : "btn-light border text-muted"}`}
+                style={{ borderRadius: "20px", fontSize: "12px", padding: "5px 14px" }}
+              >
+                Unassigned
+              </button>
+            </div>
+
+            <div className="d-flex align-items-center gap-2">
+              <span className="text-muted fw-semibold" style={{ fontSize: "12px", whiteSpace: "nowrap" }}>Filter By Staff:</span>
+              <select
+                className="form-select form-select-sm"
+                style={{ borderRadius: "8px", fontSize: "12px", minWidth: "170px" }}
+                value={assignedFilter}
+                onChange={(e) => {
+                  setAssignedFilter(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="All">All Staff Members</option>
+                <option value="me">★ Assigned to Me ({storedUser.name || storedUser.username || "My Tasks"})</option>
+                <option value="unassigned">Unassigned</option>
+              </select>
+            </div>
+          </div>
+        ) : (
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 pb-3 mb-3 border-bottom">
+            <div className="d-flex align-items-center gap-2">
+              <span
+                className="badge d-inline-flex align-items-center gap-1 shadow-sm"
+                style={{
+                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                  color: "#fff",
+                  fontSize: "12.5px",
+                  padding: "7px 15px",
+                  borderRadius: "20px"
+                }}
+              >
+                ★ My Assigned Follow-ups ({totalCount})
+              </span>
+              <span className="text-muted" style={{ fontSize: "12.5px" }}>
+                Only follow-ups assigned to you are displayed.
+              </span>
+            </div>
+            <div className="badge bg-light text-dark border px-3 py-2" style={{ fontSize: "12px" }}>
+              Representative: <strong>{storedUser.displayName || storedUser.name || storedUser.username}</strong>
+            </div>
+          </div>
+        )}
+
         {/* Row 1: Entries limit + Search */}
         <div className="row g-2 align-items-center mb-3">
-          {/* Show Entries Dropdown */}
           <div className="col-12 col-sm-6 col-md-4 d-flex align-items-center gap-2">
             <span className="text-muted fw-semibold" style={{ fontSize: "13px", whiteSpace: "nowrap" }}>
               Show
@@ -340,7 +808,6 @@ const CrmFollowupsList = () => {
             </span>
           </div>
 
-          {/* Search Input */}
           <div className="col-12 col-sm-6 col-md-8">
             <div className="input-group">
               <span className="input-group-text bg-white border-end-0" style={{ borderRadius: "10px 0 0 10px" }}>
@@ -363,7 +830,7 @@ const CrmFollowupsList = () => {
 
         {/* Row 2: Status, Type, Priority, Date Range */}
         <div className="row g-2 align-items-end pt-2 border-top">
-          {/* Follow-up Status */}
+          {/* Status */}
           <div className="col-6 col-md-2">
             <label className="form-label text-muted mb-1 fw-semibold" style={{ fontSize: "11.5px" }}>
               Status
@@ -401,10 +868,12 @@ const CrmFollowupsList = () => {
             >
               <option value="All">All Types</option>
               <option value="Call">Call</option>
+              <option value="Phone Call">Phone Call</option>
               <option value="WhatsApp">WhatsApp</option>
               <option value="Email">Email</option>
               <option value="Meeting">Meeting</option>
               <option value="Site Visit">Site Visit</option>
+              <option value="Showroom Demo">Showroom Demo</option>
             </select>
           </div>
 
@@ -441,6 +910,8 @@ const CrmFollowupsList = () => {
               value={fromDate}
               onChange={(e) => {
                 setFromDate(e.target.value);
+                setDateFilter("All");
+                setSelectedSpecificDate("");
                 setPage(1);
               }}
             />
@@ -458,6 +929,8 @@ const CrmFollowupsList = () => {
               value={toDate}
               onChange={(e) => {
                 setToDate(e.target.value);
+                setDateFilter("All");
+                setSelectedSpecificDate("");
                 setPage(1);
               }}
             />
@@ -471,14 +944,236 @@ const CrmFollowupsList = () => {
               onClick={handleResetFilters}
             >
               <FaUndo size={10} />
-              <span>Reset</span>
+              <span>Reset Filters</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Follow-ups Table Card */}
+      {/* VIEW MODE 1: CALENDAR VIEW */}
+      {viewMode === "calendar" && (
+        <div className="crm-card p-3 mb-4" style={{ borderRadius: "14px" }}>
+          {/* Calendar Header Navigation */}
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 pb-3 mb-3 border-bottom">
+            <div className="d-flex align-items-center gap-2">
+              <button
+                className="btn btn-light border btn-sm p-1 px-2"
+                onClick={handlePrevMonth}
+                title="Previous Month"
+                style={{ borderRadius: "8px" }}
+              >
+                <FaChevronLeft size={12} />
+              </button>
+              <h4 className="mb-0 fw-bold text-dark" style={{ fontSize: "18px", minWidth: "180px", textAlign: "center" }}>
+                {calendarMonthYearStr}
+              </h4>
+              <button
+                className="btn btn-light border btn-sm p-1 px-2"
+                onClick={handleNextMonth}
+                title="Next Month"
+                style={{ borderRadius: "8px" }}
+              >
+                <FaChevronRight size={12} />
+              </button>
+              <button
+                className="btn btn-outline-primary btn-sm ms-2"
+                onClick={handleTodayMonth}
+                style={{ borderRadius: "8px", fontSize: "12px", padding: "4px 12px" }}
+              >
+                Today
+              </button>
+            </div>
+
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge bg-light text-dark border px-3 py-2" style={{ fontSize: "12px" }}>
+                Total in Month: <strong>{calendarFollowups.length} Follow-ups</strong>
+              </span>
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => setViewMode("list")}
+                style={{ borderRadius: "8px", fontSize: "12px" }}
+              >
+                Switch to Table View
+              </button>
+            </div>
+          </div>
+
+          {/* Weekday Names Header */}
+          <div className="row g-1 mb-2 text-center text-muted fw-bold" style={{ fontSize: "12px", letterSpacing: "0.5px" }}>
+            {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((dayName, idx) => (
+              <div key={idx} className="col">
+                <div className="p-2 bg-light rounded" style={{ fontWeight: "700" }}>
+                  {dayName}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Days Grid */}
+          {loadingCalendar ? (
+            <div className="text-center py-5">
+              <div className="spinner-border text-primary spinner-border-sm me-2" role="status" />
+              <span className="text-muted" style={{ fontSize: "13px" }}>Loading calendar events...</span>
+            </div>
+          ) : (
+            <div className="d-flex flex-column gap-1">
+              {calendarDaysMatrix.map((week, wIdx) => (
+                <div key={wIdx} className="row g-1">
+                  {week.map((dayObj, dIdx) => {
+                    const isToday = dayObj.dateStr === todayStr;
+                    const isSelected = selectedSpecificDate === dayObj.dateStr;
+                    const itemsOnThisDay = followupsByDate[dayObj.dateStr] || [];
+
+                    return (
+                      <div key={dIdx} className="col" style={{ minHeight: "115px" }}>
+                        <div
+                          onClick={() => handleCalendarDayClick(dayObj)}
+                          className="h-100 p-2 d-flex flex-column justify-content-between border rounded"
+                          style={{
+                            backgroundColor: isSelected
+                              ? "#eff6ff"
+                              : isToday
+                              ? "#fffdf5"
+                              : dayObj.isCurrentMonth
+                              ? "#ffffff"
+                              : "#f8fafc",
+                            borderColor: isSelected
+                              ? "#2563eb"
+                              : isToday
+                              ? "#f59e0b"
+                              : "#e2e8f0",
+                            borderWidth: isSelected || isToday ? "2px" : "1px",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease-in-out",
+                            position: "relative"
+                          }}
+                        >
+                          {/* Top: Day Number and Badges */}
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <span
+                              className={`fw-bold ${
+                                isToday
+                                  ? "text-primary"
+                                  : dayObj.isCurrentMonth
+                                  ? "text-dark"
+                                  : "text-muted opacity-50"
+                              }`}
+                              style={{ fontSize: "13px" }}
+                            >
+                              {dayObj.dayNumber}
+                            </span>
+
+                            {isToday && (
+                              <span
+                                className="badge"
+                                style={{
+                                  backgroundColor: "#fef3c7",
+                                  color: "#b45309",
+                                  fontSize: "9.5px",
+                                  padding: "2px 5px",
+                                  fontWeight: "700"
+                                }}
+                              >
+                                TODAY
+                              </span>
+                            )}
+
+                            {itemsOnThisDay.length > 0 && !isToday && (
+                              <span
+                                className="badge bg-primary rounded-pill text-white"
+                                style={{ fontSize: "9.5px", padding: "2px 6px" }}
+                              >
+                                {itemsOnThisDay.length}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Middle: Follow-up Activity Items */}
+                          <div className="d-flex flex-column gap-1 flex-grow-1 overflow-hidden">
+                            {itemsOnThisDay.slice(0, 3).map((item, fIdx) => {
+                              const isCompleted = item.followup_status === "Completed";
+                              const pBadge = getPriorityBadge(item.priority);
+
+                              return (
+                                <div
+                                  key={item.id || fIdx}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setViewFollowup(item);
+                                  }}
+                                  className="p-1 px-2 rounded shadow-2xs d-flex align-items-center justify-content-between"
+                                  style={{
+                                    fontSize: "11px",
+                                    backgroundColor: isCompleted ? "#ecfdf5" : "#f1f5f9",
+                                    borderLeft: `3px solid ${pBadge.color}`,
+                                    cursor: "pointer"
+                                  }}
+                                  title={`${item.followup_title} - ${item.entity_name || ""}`}
+                                >
+                                  <div className="text-truncate me-1" style={{ maxWidth: "85%" }}>
+                                    <strong>{item.followup_time ? formatTimeDisplay(item.followup_time) : "•"}</strong>{" "}
+                                    <span>{item.entity_name || item.followup_title}</span>
+                                  </div>
+                                  <span style={{ fontSize: "10px" }}>
+                                    {getTypeIcon(item.followup_type)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+
+                            {itemsOnThisDay.length > 3 && (
+                              <div className="text-muted text-center" style={{ fontSize: "10px", fontWeight: "600" }}>
+                                +{itemsOnThisDay.length - 3} more
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Bottom Action Hint */}
+                          {itemsOnThisDay.length > 0 && (
+                            <div className="mt-1 pt-1 border-top text-end" style={{ fontSize: "10px" }}>
+                              <span className="text-primary fw-semibold">View in list →</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* VIEW MODE 2: TABLE LIST VIEW */}
       <div className="crm-card overflow-hidden" style={{ borderRadius: "14px" }}>
+        <div className="p-3 bg-white border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2">
+            <FaCalendarCheck className="text-primary" size={16} />
+            <span className="fw-bold text-dark" style={{ fontSize: "15px" }}>
+              Follow-ups Schedule List
+            </span>
+            <span className="badge bg-light text-dark border">
+              {totalCount} total entries
+            </span>
+          </div>
+
+          {selectedSpecificDate && (
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge bg-primary text-white" style={{ fontSize: "12px", padding: "6px 12px" }}>
+                Showing Date: {formatFollowupDate(selectedSpecificDate).formatted}
+              </span>
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => setSelectedSpecificDate("")}
+                style={{ borderRadius: "6px", fontSize: "11px" }}
+              >
+                Clear Date
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="table-responsive">
           <table className="table align-middle mb-0 crm-table">
             <thead className="bg-light">
@@ -486,8 +1181,8 @@ const CrmFollowupsList = () => {
                 <th style={{ width: "45px" }}>#</th>
                 <th>Follow-up ID & Title</th>
                 <th>Related To / Contact</th>
-                <th>Activity</th>
-                <th>Date & Time</th>
+                <th>Activity Type</th>
+                <th style={{ minWidth: "160px" }}>Scheduled Date & Time</th>
                 <th>Status</th>
                 <th>Assigned To</th>
                 <th style={{ textAlign: "right" }}>Actions</th>
@@ -520,27 +1215,27 @@ const CrmFollowupsList = () => {
                     >
                       <FaCalendarCheck size={24} className="text-muted" />
                     </div>
-                    <div className="fw-semibold text-dark mb-1">No follow-ups found</div>
+                    <div className="fw-semibold text-dark mb-1">No follow-ups found for this criteria</div>
                     <p className="text-muted mb-3" style={{ fontSize: "13px" }}>
-                      {search || statusFilter !== "All" || typeFilter !== "All"
-                        ? "Try clearing your filters or search terms."
+                      {search || statusFilter !== "All" || typeFilter !== "All" || dateFilter !== "All" || selectedSpecificDate
+                        ? "Try clearing your date or search filters."
                         : "Click 'New Follow-up' above to create your first follow-up activity."}
                     </p>
-                    {(search || statusFilter !== "All" || typeFilter !== "All") && (
-                      <button
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={handleResetFilters}
-                        style={{ borderRadius: "8px" }}
-                      >
-                        Reset All Filters
-                      </button>
-                    )}
+                    <button
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={handleResetFilters}
+                      style={{ borderRadius: "8px" }}
+                    >
+                      Reset All Filters
+                    </button>
                   </td>
                 </tr>
               ) : (
                 followups.map((item, idx) => {
                   const statusStyle = getStatusBadge(item.followup_status);
                   const priorityStyle = getPriorityBadge(item.priority);
+                  const dateInfo = formatFollowupDate(item.followup_date);
+                  const displayTime = formatTimeDisplay(item.followup_time);
 
                   return (
                     <tr key={item.id || idx}>
@@ -554,7 +1249,7 @@ const CrmFollowupsList = () => {
                         <div className="fw-bold text-dark" style={{ fontSize: "13.5px" }}>
                           {item.followup_title}
                         </div>
-                        <div className="d-flex align-items-center gap-2 mt-1">
+                        <div className="d-flex align-items-center gap-2 mt-1 flex-wrap">
                           <span
                             style={{
                               fontSize: "10.5px",
@@ -568,7 +1263,7 @@ const CrmFollowupsList = () => {
                             {item.priority || "Medium"}
                           </span>
                           <span className="text-muted" style={{ fontSize: "11px", fontWeight: "600" }}>
-                            {item.followup_id}
+                            {item.followup_code || item.followup_id || `FLW-${item.id}`}
                           </span>
                         </div>
                       </td>
@@ -576,11 +1271,11 @@ const CrmFollowupsList = () => {
                       {/* Related To / Contact */}
                       <td>
                         <div className="fw-medium text-dark">
-                          {item.entity_name || "Direct Prospect"}
+                          {item.entity_name || "Direct Customer"}
                         </div>
                         <div className="text-muted" style={{ fontSize: "12px" }}>
                           <span className="badge bg-light text-dark border me-1" style={{ fontSize: "10px" }}>
-                            {item.related_to}
+                            {item.related_to || "Lead"}
                           </span>
                           {item.company_name && <span>{item.company_name}</span>}
                         </div>
@@ -592,11 +1287,11 @@ const CrmFollowupsList = () => {
                         )}
                       </td>
 
-                      {/* Activity */}
+                      {/* Activity Type */}
                       <td>
                         <div className="d-flex align-items-center" style={{ fontSize: "13px", fontWeight: "500" }}>
                           {getTypeIcon(item.followup_type)}
-                          <span>{item.followup_type}</span>
+                          <span>{item.followup_type || "Call"}</span>
                         </div>
                         {item.duration && (
                           <div className="text-muted mt-1" style={{ fontSize: "11px" }}>
@@ -605,13 +1300,31 @@ const CrmFollowupsList = () => {
                         )}
                       </td>
 
-                      {/* Date & Time */}
+                      {/* Date & Time (Clean, formatted without timezone skew) */}
                       <td>
-                        <div className="text-dark" style={{ fontSize: "12.5px", fontWeight: "600" }}>
-                          {item.followup_date || "-"}
+                        <div className="d-flex align-items-center gap-2 flex-wrap">
+                          <span className="fw-bold text-dark" style={{ fontSize: "13px" }}>
+                            {dateInfo.formatted}
+                          </span>
+                          {dateInfo.badge && (
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                fontWeight: "700",
+                                padding: "1px 7px",
+                                borderRadius: "12px",
+                                backgroundColor: dateInfo.badge.bg,
+                                color: dateInfo.badge.color,
+                                border: `1px solid ${dateInfo.badge.border}`
+                              }}
+                            >
+                              {dateInfo.badge.label}
+                            </span>
+                          )}
                         </div>
-                        <div className="text-muted mt-1" style={{ fontSize: "11px" }}>
-                          {item.followup_time || "Anytime"}
+                        <div className="d-flex align-items-center gap-1 text-muted mt-1" style={{ fontSize: "11.5px" }}>
+                          <FaClock size={10} className="text-primary" />
+                          <span>{displayTime}</span>
                         </div>
                       </td>
 
@@ -637,7 +1350,7 @@ const CrmFollowupsList = () => {
                         </span>
                         {item.next_followup_date && (
                           <div className="text-muted mt-1" style={{ fontSize: "10.5px" }}>
-                            Next: {item.next_followup_date}
+                            Next: {formatFollowupDate(item.next_followup_date).formatted}
                           </div>
                         )}
                       </td>
@@ -677,14 +1390,16 @@ const CrmFollowupsList = () => {
                           >
                             <FaCheckCircle size={12} />
                           </button>
-                          <button
-                            className="btn btn-sm btn-light border p-1 px-2"
-                            onClick={() => setDeleteTarget(item)}
-                            title="Delete Follow-up"
-                            style={{ borderRadius: "6px" }}
-                          >
-                            <FaTrash size={12} className="text-danger" />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              className="btn btn-sm btn-light border p-1 px-2"
+                              onClick={() => setDeleteTarget(item)}
+                              title="Delete Follow-up"
+                              style={{ borderRadius: "6px" }}
+                            >
+                              <FaTrash size={12} className="text-danger" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -744,7 +1459,7 @@ const CrmFollowupsList = () => {
             <span className="fw-bold">Follow-up Details</span>
             {viewFollowup && (
               <span className="badge bg-light text-dark border ms-2">
-                {viewFollowup.followup_id}
+                {viewFollowup.followup_code || viewFollowup.followup_id || `FLW-${viewFollowup.id}`}
               </span>
             )}
           </div>
@@ -783,7 +1498,11 @@ const CrmFollowupsList = () => {
                       B. Activity Details
                     </div>
                     <div><strong>Type:</strong> {viewFollowup.followup_type}</div>
-                    <div><strong>Date & Time:</strong> {viewFollowup.followup_date} at {viewFollowup.followup_time || "N/A"}</div>
+                    <div>
+                      <strong>Scheduled Date:</strong>{" "}
+                      {formatFollowupDate(viewFollowup.followup_date).formatted} at{" "}
+                      {formatTimeDisplay(viewFollowup.followup_time)}
+                    </div>
                     <div><strong>Duration:</strong> {viewFollowup.duration ? `${viewFollowup.duration} minutes` : "-"}</div>
                     <div><strong>Priority:</strong> {viewFollowup.priority}</div>
                     <div><strong>Status:</strong> {viewFollowup.followup_status}</div>
@@ -794,7 +1513,7 @@ const CrmFollowupsList = () => {
                 <div className="col-12 col-md-6">
                   <div className="p-3 bg-light rounded h-100" style={{ fontSize: "13px" }}>
                     <div className="fw-bold text-dark mb-2 border-bottom pb-1">
-                      D. Assignment Details
+                      C. Assignment Details
                     </div>
                     <div><strong>Assigned To:</strong> {viewFollowup.assigned_to || "Unassigned"}</div>
                     <div><strong>Created By:</strong> {viewFollowup.created_by || "Admin"}</div>
@@ -802,7 +1521,7 @@ const CrmFollowupsList = () => {
                     <div>
                       <strong>Next Follow-up:</strong>{" "}
                       {viewFollowup.next_followup_date
-                        ? `${viewFollowup.next_followup_date} ${viewFollowup.next_followup_time || ""}`
+                        ? `${formatFollowupDate(viewFollowup.next_followup_date).formatted} ${formatTimeDisplay(viewFollowup.next_followup_time)}`
                         : "None scheduled"}
                     </div>
                   </div>
@@ -812,7 +1531,7 @@ const CrmFollowupsList = () => {
                 <div className="col-12">
                   <div className="p-3 bg-light rounded" style={{ fontSize: "13px" }}>
                     <div className="fw-bold text-dark mb-2 border-bottom pb-1">
-                      C. Discussion & Requirements
+                      D. Discussion & Requirements
                     </div>
                     <div className="mb-2">
                       <strong>Customer Response:</strong>{" "}
@@ -889,7 +1608,7 @@ const CrmFollowupsList = () => {
               </div>
               {selectedFollowup && (
                 <div className="text-muted fw-normal mt-1" style={{ fontSize: "12px" }}>
-                  For: <strong className="text-dark">{selectedFollowup.followup_title}</strong> • Related: {selectedFollowup.related_to} ({selectedFollowup.entity_name || "-"}) {selectedFollowup.mobile_number && `(${selectedFollowup.mobile_number})`}
+                  For: <strong className="text-dark">{selectedFollowup.followup_title}</strong> • Related: {selectedFollowup.related_to || "Lead"} ({selectedFollowup.entity_name || "-"}) {selectedFollowup.mobile_number && `(${selectedFollowup.mobile_number})`}
                 </div>
               )}
             </div>
@@ -914,6 +1633,7 @@ const CrmFollowupsList = () => {
                   <option value="Email">Email</option>
                   <option value="Meeting">Meeting</option>
                   <option value="Site Visit">Site Visit</option>
+                  <option value="Showroom Demo">Showroom Demo</option>
                 </select>
               </div>
 
@@ -1048,4 +1768,3 @@ const CrmFollowupsList = () => {
 };
 
 export default CrmFollowupsList;
-

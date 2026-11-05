@@ -6,7 +6,11 @@ import {
   CreditCard, TrendingUp, Receipt, UserPlus, FileText,
   UserCheck, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight,
   Shield, Bell, Sparkles, Store, Search, CheckCircle2,
+<<<<<<< HEAD
   Play, Square, ChevronDown, BarChart2, ClipboardList, UserCog
+=======
+  Play, Square, LogOut, Briefcase, CalendarCheck, ExternalLink
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
 } from 'lucide-react';
 
 // Import Modular Tab Components
@@ -22,7 +26,16 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
+<<<<<<< HEAD
   { id: 'attendance', label: 'Attendance', icon: Clock, badge: null },
+=======
+  { id: 'crm_leads', label: 'Allocated Leads', icon: Briefcase, badge: 'CRM', path: '/crm/leads?assigned_to=me' },
+  { id: 'crm_followups', label: 'Follow-ups', icon: CalendarCheck, badge: 'CRM', path: '/crm/followups?assigned_to=me' },
+  { id: 'attendance', label: 'My Attendance', icon: Clock, badge: null },
+  { id: 'reports', label: 'Reports', icon: FileText, badge: null },
+  { id: 'leaves', label: 'Leave', icon: Calendar, badge: 'leaves' },
+  { id: 'payroll', label: 'Payroll & Payslip', icon: CreditCard, badge: null },
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
   { id: 'directory', label: 'Employee Directory', icon: Users, badge: null },
   { id: 'leaves', label: 'Leave', icon: Calendar, badge: 'leaves' },
   { id: 'reports', label: 'Reports', icon: FileText, badge: null }
@@ -57,6 +70,8 @@ export default function HrmsDashboard() {
   const [advancesData, setAdvancesData] = useState([]);
   const [jobOpenings, setJobOpenings] = useState([]);
   const [candidates, setCandidates] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
 
   // Dashboard active attendance date
   const [dashboardDate, setDashboardDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -71,26 +86,59 @@ export default function HrmsDashboard() {
     }
   });
 
-  const isCashier = currentUser?.is_cashier || currentUser?.role === 'Cashier' || currentUser?.role_name === 'Cashier';
+  // Identify logged in employee record early
+  const currentEmp = employees.find(e => {
+    if (!currentUser) return false;
+    if (currentUser.employee_id && String(e.id) === String(currentUser.employee_id)) return true;
+    if (currentUser.id && String(e.user_id) === String(currentUser.id)) return true;
+    if (currentUser.employee_code && e.employee_code === currentUser.employee_code) return true;
+    if (currentUser.phone && e.phone === currentUser.phone) return true;
+    if (currentUser.email && e.email === currentUser.email) return true;
+    const empName = `${e.name || e.first_name || ''}`.trim().toLowerCase();
+    const curName = `${currentUser.name || currentUser.username || currentUser.displayName || ''}`.trim().toLowerCase();
+    if (curName && empName && (empName === curName || empName.includes(curName) || curName.includes(empName))) return true;
+    return false;
+  }) || {};
+
   const roleLower = String(currentUser?.role_name || currentUser?.role || '').toLowerCase();
-  const isSalesPerson = roleLower.includes('sales');
+  const desigLower = String(currentEmp?.designation || currentUser?.designation || '').toLowerCase();
+  const deptLower = String(currentEmp?.department || currentUser?.department || '').toLowerCase();
+
+  const isCashier = Boolean(currentUser?.is_cashier) ||
+    currentUser?.role_id === 8 ||
+    roleLower.includes('cashier') ||
+    desigLower.includes('cashier') ||
+    deptLower.includes('accounts');
+
+  const isSalesPerson = !isCashier && (roleLower.includes('sales') || desigLower.includes('sales'));
   const isStaffOnly = isSalesPerson || roleLower.includes('staff') || roleLower.includes('employee');
-  const isStaff = isCashier || isStaffOnly || currentUser?.is_staff;
+  const isStaff = isCashier || isStaffOnly || Boolean(currentUser?.is_staff);
   const canReturnToBilling = isCashier || (!isStaffOnly && !currentUser?.is_staff);
   const defaultTab = 'dashboard';
   const activeTab = tab || defaultTab;
 
   const validTabs = ['dashboard', 'attendance', 'directory', 'leaves', 'reports'];
   useEffect(() => {
+<<<<<<< HEAD
     if (tab && !validTabs.includes(tab)) {
       navigate('/hrms/dashboard', { replace: true });
     }
   }, [tab, navigate]);
+=======
+    if (isCashier && ['crm_leads', 'crm_followups'].includes(tab)) {
+      navigate('/hrms/dashboard', { replace: true });
+      return;
+    }
+    if (isStaff && (!tab || ['directory', 'departments', 'recruitment'].includes(tab))) {
+      navigate('/hrms/dashboard', { replace: true });
+    }
+  }, [isStaff, isCashier, tab, navigate]);
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
 
   // Live Header Punch Station State
   const [currentTime, setCurrentTime] = useState(new Date());
   const [headerPunching, setHeaderPunching] = useState(false);
-  const [localHeaderPunch, setLocalHeaderPunch] = useState(null);
+  const [localHeaderPunch, setLocalHeaderPunch] = useState(() => currentUser?.today_punch || null);
 
   // Reports sub-section state
   const [activeReportType, setActiveReportType] = useState('muster');
@@ -115,28 +163,19 @@ export default function HrmsDashboard() {
     return `${year}-${month}-${day}`;
   };
 
-  // Identify logged in employee record for punch
-  const currentEmp = employees.find(e => {
-    if (!currentUser) return false;
-    if (currentUser.employee_id && String(e.id) === String(currentUser.employee_id)) return true;
-    if (currentUser.id && String(e.user_id) === String(currentUser.id)) return true;
-    if (currentUser.employee_code && e.employee_code === currentUser.employee_code) return true;
-    if (currentUser.phone && e.phone === currentUser.phone) return true;
-    if (currentUser.email && e.email === currentUser.email) return true;
-    const empName = `${e.name || e.first_name || ''}`.trim().toLowerCase();
-    const curName = `${currentUser.name || currentUser.username || currentUser.displayName || ''}`.trim().toLowerCase();
-    if (curName && empName && (empName === curName || empName.includes(curName) || curName.includes(empName))) return true;
-    return false;
-  }) || {};
+  // currentEmp resolved above
 
   const todayStr = getLocalDateStr(new Date());
   const effectiveEmpId = currentEmp?.id || currentUser?.employee_id;
   const matchedTodayPunch = attendanceData.find(a => {
     const isEmpMatch = (
       (effectiveEmpId && String(a.employee_id) === String(effectiveEmpId)) ||
+      (currentEmp?.id && String(a.employee_id) === String(currentEmp.id)) ||
       (currentEmp?.user_id && String(a.employee_id) === String(currentEmp.user_id)) ||
       (currentUser?.id && String(a.employee_id) === String(currentUser.id)) ||
-      (currentUser?.id && String(a.user_id) === String(currentUser.id))
+      (currentUser?.id && String(a.user_id) === String(currentUser.id)) ||
+      (currentEmp?.employee_code && a.employee_code === currentEmp.employee_code) ||
+      (currentUser?.employee_code && a.employee_code === currentUser.employee_code)
     );
     if (!isEmpMatch) return false;
     const attDate = getLocalDateStr(a.attendance_date || a.date);
@@ -191,7 +230,30 @@ export default function HrmsDashboard() {
     }
   };
 
+<<<<<<< HEAD
   const permittedNavItems = NAV_ITEMS;
+=======
+  const permittedNavItems = NAV_ITEMS.filter(item => {
+    if (!isStaff) {
+      // For Admin: show full HRMS administrative modules; omit personal CRM assigned leads & follow-ups
+      return item.id !== 'crm_leads' && item.id !== 'crm_followups';
+    }
+    if (isCashier) {
+      // For Cashier: strictly omit CRM Allocated Leads and CRM Follow-ups
+      return item.id !== 'crm_leads' && item.id !== 'crm_followups' &&
+        ['dashboard', 'attendance', 'reports', 'leaves', 'payroll'].includes(item.id);
+    }
+    // For Sales Staff: keep CRM assigned leads & follow-ups workstation links
+    return ['dashboard', 'crm_leads', 'crm_followups', 'attendance', 'reports', 'leaves', 'payroll'].includes(item.id);
+  });
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('activeBranchId');
+    navigate('/');
+  };
 
   const getHeaders = () => {
     const token = localStorage.getItem('token');
@@ -239,14 +301,20 @@ export default function HrmsDashboard() {
       const advPromise = axios.get(`${BACKEND_URL}/api/hrms/advances`, { headers }).catch(e => ({ data: { data: [] } }));
       const jobsPromise = axios.get(`${BACKEND_URL}/api/hrms/recruitment/jobs`, { headers }).catch(e => ({ data: { data: [] } }));
       const candsPromise = axios.get(`${BACKEND_URL}/api/hrms/recruitment/candidates`, { headers }).catch(e => ({ data: { data: [] } }));
+      const punchPromise = axios.get(`${BACKEND_URL}/api/hrms/my/punch-status`, { headers }).catch(e => ({ data: { punch: null } }));
+      const notifPromise = axios.get(`${BACKEND_URL}/api/hrms/notifications`, { headers }).catch(e => ({ data: { data: [] } }));
 
       const [
         sumRes, empRes, deptRes, desigRes, attRes, leaveRes,
-        payRes, perfRes, ruleRes, expRes, advRes, jobRes, candRes
+        payRes, perfRes, ruleRes, expRes, advRes, jobRes, candRes, punchRes, notifRes
       ] = await Promise.all([
         summaryPromise, empPromise, deptPromise, desigPromise, attPromise, leavesPromise,
-        payrollPromise, perfPromise, rulesPromise, expPromise, advPromise, jobsPromise, candsPromise
+        payrollPromise, perfPromise, rulesPromise, expPromise, advPromise, jobsPromise, candsPromise, punchPromise, notifPromise
       ]);
+
+      if (punchRes?.data?.punch) {
+        setLocalHeaderPunch(punchRes.data.punch);
+      }
 
       setStats(sumRes.data?.data || null);
       setEmployees(Array.isArray(empRes.data?.data) ? empRes.data.data : []);
@@ -261,6 +329,7 @@ export default function HrmsDashboard() {
       setAdvancesData(Array.isArray(advRes.data?.data) ? advRes.data.data : []);
       setJobOpenings(Array.isArray(jobRes.data?.data) ? jobRes.data.data : []);
       setCandidates(Array.isArray(candRes.data?.data) ? candRes.data.data : []);
+      setNotifications(Array.isArray(notifRes.data?.data) ? notifRes.data.data : []);
     } catch (err) {
       console.error('Failed to load HRMS platform data:', err);
       setError('Could not connect to HRMS services. Please ensure server is running.');
@@ -273,13 +342,23 @@ export default function HrmsDashboard() {
     fetchAllHrmsData();
   }, [fetchAllHrmsData]);
 
-  const handleTabChange = (newTab) => {
-    navigate(`/hrms/${newTab}`);
+  const handleTabChange = (itemOrId) => {
+    if (typeof itemOrId === 'object' && itemOrId?.path) {
+      navigate(itemOrId.path);
+      return;
+    }
+    const matched = NAV_ITEMS.find(n => n.id === itemOrId);
+    if (matched?.path) {
+      navigate(matched.path);
+    } else {
+      navigate(`/hrms/${itemOrId}`);
+    }
   };
 
   const handleQuickAttendance = async (employeeId, status, targetDate = dashboardDate, checkInTime = null) => {
     try {
       const headers = getHeaders();
+<<<<<<< HEAD
       const dateToUse = targetDate || dashboardDate;
       const nowTime = new Date().toTimeString().slice(0, 5);
       await axios.post(`${BACKEND_URL}/api/hrms/attendance`, {
@@ -287,6 +366,16 @@ export default function HrmsDashboard() {
         date: dateToUse,
         status: status,
         check_in: status === 'Absent' ? null : (checkInTime || nowTime)
+=======
+      const normalizedStatus = (status || '').toUpperCase() === 'PRESENT' ? 'Present' :
+                               (status || '').toUpperCase() === 'LATE' ? 'Late' :
+                               (status || '').toUpperCase() === 'ABSENT' ? 'Absent' : status;
+      await axios.post(`${BACKEND_URL}/api/hrms/attendance`, {
+        employee_id: employeeId,
+        date: todayStr,
+        status: normalizedStatus,
+        check_in: new Date().toTimeString().slice(0, 5)
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
       }, { headers });
       fetchDashboardSummary(dateToUse);
       const attRes = await axios.get(`${BACKEND_URL}/api/hrms/attendance`, { headers }).catch(() => null);
@@ -296,7 +385,17 @@ export default function HrmsDashboard() {
     }
   };
 
-  const pendingLeavesCount = leavesData.filter(l => l.status === 'PENDING').length;
+  const pendingLeavesCount = leavesData.filter(l => String(l.status || '').toUpperCase() === 'PENDING').length;
+
+  const markNotificationRead = async (id) => {
+    try {
+      const headers = getHeaders();
+      await axios.put(`${BACKEND_URL}/api/hrms/notifications/${id}/read`, {}, { headers });
+      setNotifications(prev => prev.map(n => (id === 'all' || n.id === id ? { ...n, is_read: 1 } : n)));
+    } catch (e) {
+      console.error('Failed to mark notification read:', e);
+    }
+  };
 
   return (
     <div className="hrms-layout" style={{ display: 'flex', flexDirection: 'row', height: '100vh', width: '100vw', overflow: 'hidden', background: '#f4f6fb' }}>
@@ -400,7 +499,7 @@ export default function HrmsDashboard() {
           </button>
         </div>
 
-        {/* Back to Billing ERP Button - Only for Cashier and Admin, HIDDEN for Sales Persons / Floor Staff */}
+        {/* Back to Billing ERP Button - Only for Cashier and Admin */}
         {canReturnToBilling && (
           <button
             onClick={() => navigate(isCashier ? '/index/salesList' : '/index/overview')}
@@ -424,6 +523,33 @@ export default function HrmsDashboard() {
           >
             <ArrowLeft size={16} />
             {!sidebarCollapsed && <span>{isCashier ? "Return to Billing (POS)" : "Return to Main ERP"}</span>}
+          </button>
+        )}
+
+        {/* CRM Workstation Quick Access - For Sales Staff */}
+        {!canReturnToBilling && (
+          <button
+            onClick={() => navigate('/crm/leads?assigned_to=me')}
+            className="hrms-billing-return-btn"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              gap: '10px',
+              margin: '12px 14px',
+              padding: '11px 14px',
+              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(124, 58, 237, 0.2))',
+              border: '1.5px solid rgba(96, 165, 250, 0.5)',
+              color: '#93c5fd',
+              borderRadius: '12px',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+            title="Open CRM Workstation (Allocated Leads & Follow-ups)"
+          >
+            <Briefcase size={16} color="#60a5fa" />
+            {!sidebarCollapsed && <span>CRM Allocated Leads</span>}
           </button>
         )}
 
@@ -575,9 +701,9 @@ export default function HrmsDashboard() {
           })}
         </nav>
 
-        {/* User Footer Profile */}
-        <div style={{ padding: '14px 16px', borderTop: '1px solid rgba(255, 215, 0, 0.18)', background: '#060810' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* User Footer Profile & Logout Button */}
+        <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255, 215, 0, 0.18)', background: '#060810' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{
                 width: '36px',
@@ -597,11 +723,37 @@ export default function HrmsDashboard() {
             </div>
             {!sidebarCollapsed && (
               <div style={{ lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#f8fafc' }}>{currentUser.name || 'Store Staff'}</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#f8fafc' }}>{currentUser.name || 'Store Staff'}</div>
                 <div style={{ fontSize: '11px', color: '#FFD700', fontWeight: 600 }}>{currentUser.role || currentUser.role_name || 'Staff Member'}</div>
               </div>
             )}
           </div>
+
+          {/* Explicit Logout Button */}
+          <button
+            onClick={handleLogout}
+            style={{
+              marginTop: '10px',
+              width: '100%',
+              padding: sidebarCollapsed ? '8px 0' : '8px 12px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.14)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              color: '#f87171',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            title="Sign out of Shiva Workforce & HRMS"
+          >
+            <LogOut size={14} />
+            {!sidebarCollapsed && <span>Logout</span>}
+          </button>
         </div>
       </aside>
 
@@ -609,13 +761,13 @@ export default function HrmsDashboard() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         {/* Top Navbar */}
         <header className="hrms-top-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flexShrink: 1 }}>
             <img
               src="/shiva_logo.png"
               alt="Shiva Electronics Logo"
               style={{
-                width: '40px',
-                height: '40px',
+                width: '38px',
+                height: '38px',
                 borderRadius: '50%',
                 objectFit: 'contain',
                 background: '#FFFFFF',
@@ -625,9 +777,9 @@ export default function HrmsDashboard() {
                 flexShrink: 0,
               }}
             />
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h1 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#f8fafc' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
+                <h1 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap' }}>
                   {isStaff && activeTab === 'dashboard'
                     ? 'Personal Dashboard'
                     : activeTab === 'reports'
@@ -636,36 +788,60 @@ export default function HrmsDashboard() {
                 </h1>
                 <span
                   style={{
-                    fontSize: '11px',
+                    fontSize: '10.5px',
                     fontWeight: 700,
                     padding: '2px 8px',
                     borderRadius: '6px',
                     background: 'rgba(255, 215, 0, 0.12)',
                     color: '#FFD700',
-                    border: '1px solid rgba(255, 215, 0, 0.3)'
+                    border: '1px solid rgba(255, 215, 0, 0.3)',
+                    whiteSpace: 'nowrap',
+                    letterSpacing: '0.3px'
                   }}
                 >
-                  {isStaff ? (isSalesPerson ? 'SALES PORTAL' : 'CASHIER PORTAL') : 'SHIVA ELECTRONICS'}
+                  {isStaff ? (isCashier ? 'CASHIER PORTAL' : 'SALES PORTAL') : 'SHIVA ELECTRONICS'}
                 </span>
               </div>
+<<<<<<< HEAD
               <p style={{ margin: 0, fontSize: '11.5px', color: '#94a3b8' }}>
                 'Workforce Attendance, Directory, Leaves & Reports'
+=======
+              <p
+                className="d-none d-xl-block"
+                style={{ margin: 0, fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+              >
+                {isStaff ? 'Personal Attendance, Invoices, Performance & Payroll' : 'Human Resource Management System & Workforce Operations'}
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
               </p>
             </div>
           </div>
 
+<<<<<<< HEAD
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             {/* Live Digital Clock */}
+=======
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, flexWrap: 'nowrap' }}>
+            {/* Header Punch Station: Check In / Check Out */}
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
+<<<<<<< HEAD
                 gap: '6px',
                 padding: '6px 14px',
                 borderRadius: '20px',
                 background: '#060810',
+=======
+                gap: '8px',
+                height: '36px',
+                padding: '2px 6px 2px 12px',
+                borderRadius: '20px',
+                background: '#070a13',
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
                 border: '1px solid rgba(255, 215, 0, 0.3)',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                flexShrink: 0
               }}
             >
               <Clock size={13} style={{ color: '#FFD700' }} />
@@ -687,12 +863,189 @@ export default function HrmsDashboard() {
               onClick={fetchAllHrmsData}
               disabled={loading}
               className="hrms-outline-gold-btn"
-              style={{ padding: '6px 12px', fontSize: '12px' }}
+              style={{ height: '36px', padding: '0 12px', fontSize: '12px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}
               title="Refresh Data"
             >
               <RefreshCw size={13} className={loading ? 'fa-spin' : ''} />
               <span>Refresh</span>
             </button>
+
+            {/* Notification Bell Dropdown */}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button
+                onClick={() => setNotifDropdownOpen(prev => !prev)}
+                className="hrms-outline-gold-btn"
+                style={{
+                  position: 'relative',
+                  height: '36px',
+                  width: '36px',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: notifDropdownOpen ? 'rgba(255, 215, 0, 0.2)' : undefined
+                }}
+                title="HRMS Notifications & Leave Alerts"
+              >
+                <Bell size={15} style={{ color: notifications.some(n => !n.is_read) ? '#FFD700' : '#cbd5e1' }} />
+                {notifications.filter(n => !n.is_read).length > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '-4px',
+                      right: '-4px',
+                      minWidth: '17px',
+                      height: '17px',
+                      borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                      color: '#ffffff',
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '0 4px',
+                      boxShadow: '0 0 8px rgba(239, 68, 68, 0.8)'
+                    }}
+                  >
+                    {notifications.filter(n => !n.is_read).length}
+                  </span>
+                )}
+              </button>
+
+              {notifDropdownOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    right: 0,
+                    width: '340px',
+                    maxHeight: '420px',
+                    background: '#0e121e',
+                    border: '1.5px solid rgba(255, 215, 0, 0.35)',
+                    borderRadius: '16px',
+                    boxShadow: '0 12px 35px rgba(0, 0, 0, 0.6)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '12px 16px',
+                      borderBottom: '1px solid rgba(255, 215, 0, 0.2)',
+                      background: 'rgba(255, 215, 0, 0.05)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Bell size={14} style={{ color: '#FFD700' }} />
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: '#FFD700' }}>
+                        HRMS Alerts
+                      </span>
+                    </div>
+                    {notifications.some(n => !n.is_read) && (
+                      <button
+                        onClick={() => markNotificationRead('all')}
+                        style={{
+                          fontSize: '11px',
+                          color: '#94a3b8',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          textDecoration: 'underline'
+                        }}
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ overflowY: 'auto', flex: 1, maxHeight: '340px' }}>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>
+                        No alerts or leave notifications
+                      </div>
+                    ) : (
+                      notifications.slice(0, 15).map(n => {
+                        const isLeaveApp = n.type === 'LEAVE_APPLICATION';
+                        const isApproved = n.type === 'LEAVE_APPROVED';
+                        const isRejected = n.type === 'LEAVE_REJECTED';
+
+                        return (
+                          <div
+                            key={n.id}
+                            style={{
+                              padding: '12px 14px',
+                              borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                              background: !n.is_read ? 'rgba(255, 215, 0, 0.06)' : 'transparent',
+                              display: 'flex',
+                              gap: '10px',
+                              alignItems: 'flex-start',
+                              transition: 'background 0.2s'
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '8px',
+                                flexShrink: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: isLeaveApp ? 'rgba(245, 158, 11, 0.2)' : isApproved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                                color: isLeaveApp ? '#fbbf24' : isApproved ? '#34d399' : '#f87171'
+                              }}
+                            >
+                              <Calendar size={14} />
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: '12px', fontWeight: 700, color: '#f1f5f9', margin: 0 }}>
+                                {n.title}
+                              </p>
+                              <p style={{ fontSize: '11px', color: '#94a3b8', margin: '3px 0 6px', lineHeight: '1.4' }}>
+                                {n.message}
+                              </p>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '10px', color: '#64748b' }}>
+                                  {n.created_at ? new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now'}
+                                </span>
+                                {isLeaveApp && (
+                                  <button
+                                    onClick={() => {
+                                      markNotificationRead(n.id);
+                                      handleTabChange('leaves');
+                                      setNotifDropdownOpen(false);
+                                    }}
+                                    style={{
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      background: 'linear-gradient(135deg, #FFD700 0%, #D49A00 100%)',
+                                      color: '#08090D',
+                                      border: 'none',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Review Leave →
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Total Staff / Personal Employee Badge */}
             {isStaff ? (
@@ -701,11 +1054,14 @@ export default function HrmsDashboard() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  padding: '6px 12px',
+                  height: '36px',
+                  padding: '0 12px',
                   borderRadius: '8px',
-                  background: '#060810',
+                  background: '#070a13',
                   border: '1px solid rgba(255, 215, 0, 0.25)',
-                  fontSize: '12px'
+                  fontSize: '12px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
                 }}
               >
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
@@ -720,11 +1076,14 @@ export default function HrmsDashboard() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  padding: '6px 12px',
+                  height: '36px',
+                  padding: '0 12px',
                   borderRadius: '8px',
-                  background: '#060810',
+                  background: '#070a13',
                   border: '1px solid rgba(255, 215, 0, 0.25)',
-                  fontSize: '12px'
+                  fontSize: '12px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
                 }}
               >
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
@@ -732,6 +1091,32 @@ export default function HrmsDashboard() {
                 <strong style={{ color: '#FFD700', fontFamily: 'monospace' }}>{employees.length}</strong>
               </div>
             )}
+
+            {/* Direct Logout Button in Header */}
+            <button
+              onClick={handleLogout}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                height: '36px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                color: '#f87171',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
+              }}
+              title="Logout from HRMS"
+            >
+              <LogOut size={13} />
+              <span className="d-none d-sm-inline">Logout</span>
+            </button>
           </div>
         </header>
 
@@ -748,6 +1133,7 @@ export default function HrmsDashboard() {
 
           {/* Module Views */}
           {activeTab === 'dashboard' && (
+<<<<<<< HEAD
             <HrmsOverviewTab
               stats={stats}
               dashboardData={stats}
@@ -767,6 +1153,39 @@ export default function HrmsDashboard() {
               onRefresh={() => fetchAllHrmsData(dashboardDate)}
               handleQuickStatusChange={handleQuickAttendance}
             />
+=======
+            isStaff ? (
+              <HrmsEssTab
+                currentUser={currentUser}
+                isCashier={isCashier}
+                employees={employees}
+                attendanceData={attendanceData}
+                leavesData={leavesData}
+                payrollData={payrollData}
+                performanceData={performanceData}
+                expensesData={expensesData}
+                advancesData={advancesData}
+                onRefresh={fetchAllHrmsData}
+                onPunchSuccess={(p) => setLocalHeaderPunch(p)}
+              />
+            ) : (
+              <HrmsOverviewTab
+                stats={stats}
+                dashboardData={stats}
+                loading={loading}
+                fetchDashboardData={fetchAllHrmsData}
+                employees={employees}
+                attendanceData={attendanceData}
+                leavesData={leavesData}
+                payrollData={payrollData}
+                departments={departments}
+                onNavigate={handleTabChange}
+                setActiveTab={handleTabChange}
+                onRefresh={fetchAllHrmsData}
+                handleQuickStatusChange={handleQuickAttendance}
+              />
+            )
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
           )}
 
           {activeTab === 'directory' && (
@@ -780,8 +1199,13 @@ export default function HrmsDashboard() {
 
           {activeTab === 'attendance' && (
             <HrmsAttendanceTab
+<<<<<<< HEAD
               employees={employees}
               attendanceData={attendanceData}
+=======
+              employees={isStaff ? (currentEmp?.id ? [currentEmp] : employees) : employees}
+              attendanceData={isStaff && currentEmp?.id ? attendanceData.filter(a => String(a.employee_id) === String(currentEmp.id)) : attendanceData}
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
               departments={departments}
               onRefresh={fetchAllHrmsData}
               currentUser={currentUser}
@@ -791,25 +1215,98 @@ export default function HrmsDashboard() {
 
           {activeTab === 'leaves' && (
             <HrmsLeavesTab
+<<<<<<< HEAD
               employees={employees}
               leavesData={leavesData}
+=======
+              employees={isStaff ? (currentEmp?.id ? [currentEmp] : employees) : employees}
+              leavesData={isStaff && currentEmp?.id ? leavesData.filter(l => String(l.employee_id) === String(currentEmp.id)) : leavesData}
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
               currentUser={currentUser}
               onRefresh={fetchAllHrmsData}
               isStaff={isStaff}
             />
           )}
 
+<<<<<<< HEAD
           {activeTab === 'reports' && (
             <HrmsReportsTab
               employees={employees}
               attendanceData={attendanceData}
+=======
+          {activeTab === 'payroll' && (
+            <HrmsPayrollTab
+              employees={isStaff ? (currentEmp?.id ? [currentEmp] : employees) : employees}
+              payrollData={isStaff && currentEmp?.id ? payrollData.filter(p => String(p.employee_id) === String(currentEmp.id)) : payrollData}
+              onRefresh={fetchAllHrmsData}
+              currentUser={currentUser}
+              isStaff={isStaff}
+            />
+          )}
+
+          {activeTab === 'performance' && (
+            <HrmsPerformanceTab
+              performanceData={performanceData}
+              incentiveRules={incentiveRules}
+              employees={employees}
+              onRefresh={fetchAllHrmsData}
+            />
+          )}
+
+          {activeTab === 'expenses' && (
+            <HrmsExpensesTab
+              employees={employees}
+              expensesData={expensesData}
+              advancesData={advancesData}
+              onRefresh={fetchAllHrmsData}
+            />
+          )}
+
+          {activeTab === 'recruitment' && (
+            <HrmsRecruitmentTab
+              jobOpenings={jobOpenings}
+              candidates={candidates}
+              departments={departments}
+              onRefresh={fetchAllHrmsData}
+            />
+          )}
+
+          {activeTab === 'reports' && (
+            <HrmsReportsTab
+              employees={isStaff ? (currentEmp?.id ? [currentEmp] : employees) : employees}
+              attendanceData={isStaff && currentEmp?.id ? attendanceData.filter(a => String(a.employee_id) === String(currentEmp.id)) : attendanceData}
+              payrollData={isStaff && currentEmp?.id ? payrollData.filter(p => String(p.employee_id) === String(currentEmp.id)) : payrollData}
+              performanceData={isStaff && currentEmp?.id ? performanceData.filter(p => String(p.employee_id) === String(currentEmp.id)) : performanceData}
+              expensesData={expensesData}
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
               departments={departments}
               currentUser={currentUser}
               isStaff={isStaff}
               initialReportType={activeReportType}
               onReportTypeChange={setActiveReportType}
             />
+<<<<<<< HEAD
           )}</div>
+=======
+          )}
+
+          {activeTab === 'selfservice' && (
+            <HrmsEssTab
+              currentUser={currentUser}
+              isCashier={isCashier}
+              employees={employees}
+              attendanceData={attendanceData}
+              leavesData={leavesData}
+              payrollData={payrollData}
+              performanceData={performanceData}
+              expensesData={expensesData}
+              advancesData={advancesData}
+              onRefresh={fetchAllHrmsData}
+              onPunchSuccess={(p) => setLocalHeaderPunch(p)}
+            />
+          )}
+        </div>
+>>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
       </main>
     </div>
   );

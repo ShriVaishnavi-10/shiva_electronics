@@ -155,18 +155,28 @@
 /* Header */
 .hrms-top-header {
   min-height: 64px;
-  height: auto;
+  height: 68px;
   background: linear-gradient(135deg, #0e121e 0%, #060810 100%);
   border-bottom: 1.5px solid rgba(255, 215, 0, 0.22);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 24px;
+  padding: 0 20px;
   flex-shrink: 0;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   z-index: 50;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-wrap: nowrap;
+  gap: 16px;
+}
+
+@media (max-width: 991px) {
+  .hrms-top-header {
+    height: auto;
+    min-height: 64px;
+    padding: 10px 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
 }
 
 /* Content Area */
@@ -342,3 +352,159 @@
   transform: translateY(-1px);
 }
 
+
+
+/* ============================================================== */
+/* CRM ALLOCATED WORKSTATION BANNER                               */
+/* ============================================================== */
+
+.crm-workstation-banner {
+  background: linear-gradient(135deg, #090e1f 0%, #0d1b3e 50%, #080d1e 100%) !important;
+  border: 1.5px solid rgba(59, 130, 246, 0.35) !important;
+  border-radius: 20px !important;
+  padding: 20px 24px !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  margin-bottom: 22px !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.crm-workstation-pill {
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.8px !important;
+  text-transform: uppercase !important;
+  background: rgba(37, 99, 235, 0.28) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(147, 197, 253, 0.4) !important;
+  padding: 3px 10px !important;
+  border-radius: 9999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.crm-stat-box {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 14px !important;
+  padding: 10px 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  min-width: 185px !important;
+  backdrop-filter: blur(8px) !important;
+  transition: all 0.2s ease !important;
+}
+
+.crm-stat-box:hover {
+  background: rgba(255, 255, 255, 0.11) !important;
+  border-color: rgba(255, 215, 0, 0.4) !important;
+}
+
+.crm-stat-label {
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.8px !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.crm-stat-val {
+  font-size: 22px !important;
+  font-weight: 900 !important;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace !important;
+  margin: 2px 0 0 0 !important;
+  line-height: 1 !important;
+}
+
+.crm-action-btn-blue {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  padding: 7px 14px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+  transition: all 0.2s ease !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+}
+
+.crm-action-btn-blue span {
+  color: #ffffff !important;
+}
+
+.crm-action-btn-blue:hover {
+  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.5) !important;
+}
+
+.crm-action-btn-amber {
+  background: linear-gradient(135deg, #d97706, #b45309) !important;
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  padding: 7px 14px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35) !important;
+  transition: all 0.2s ease !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+}
+
+.crm-action-btn-amber span {
+  color: #ffffff !important;
+}
+
+.crm-action-btn-amber:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(217, 119, 6, 0.5) !important;
+}
+
+.crm-action-btn-gold {
+  background: linear-gradient(135deg, #FFD700 0%, #F59E0B 50%, #D49A00 100%) !important;
+  color: #08090D !important;
+  font-size: 12.5px !important;
+  font-weight: 800 !important;
+  padding: 10px 18px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.35) !important;
+  transition: all 0.2s ease !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+}
+
+.crm-action-btn-gold span {
+  color: #08090D !important;
+}
+
+.crm-action-btn-gold:hover {
+  background: linear-gradient(135deg, #FFF275 0%, #FFD700 100%) !important;
+  color: #08090D !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.55) !important;
+}

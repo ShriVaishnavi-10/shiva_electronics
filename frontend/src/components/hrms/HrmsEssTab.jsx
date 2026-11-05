@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
-  User, Clock, Calendar, DollarSign, TrendingUp, Receipt,
+  User, Clock, Calendar, DollarSign, TrendingUp, Receipt, Plus,
   CheckCircle2, Bell, AlertCircle, Printer, FileText, ArrowUpRight,
-  Play, Square, Check, RefreshCw, X, Shield, Award, Sparkles, Building
+  Play, Square, Check, RefreshCw, X, Shield, Award, Sparkles, Building,
+  Briefcase, CalendarCheck, ExternalLink, ArrowRight
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import '../../style/HrmsTheme.css';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 export default function HrmsEssTab({
   currentUser = null,
+  isCashier: isCashierProp = null,
   employees = [],
   attendanceData = [],
   leavesData = [],
@@ -21,6 +25,7 @@ export default function HrmsEssTab({
   onPunchSuccess
 }) {
   const [selectedSlip, setSelectedSlip] = useState(null);
+  const navigate = useNavigate();
 
   // Find logged in employee record
   const currentEmp = employees.find(e => {
@@ -35,6 +40,52 @@ export default function HrmsEssTab({
     if (curName && empName && (empName === curName || empName.includes(curName) || curName.includes(empName))) return true;
     return false;
   }) || {};
+
+  const roleLower = String(currentUser?.role_name || currentUser?.role || '').toLowerCase();
+  const desigLower = String(currentEmp?.designation || currentUser?.designation || '').toLowerCase();
+  const deptLower = String(currentEmp?.department || currentUser?.department || '').toLowerCase();
+
+  const isCashier = isCashierProp !== null ? Boolean(isCashierProp) : (
+    Boolean(currentUser?.is_cashier) ||
+    currentUser?.role_id === 8 ||
+    roleLower.includes('cashier') ||
+    desigLower.includes('cashier') ||
+    deptLower.includes('accounts')
+  );
+
+  const [crmStats, setCrmStats] = useState({ allocatedLeads: 0, pendingFollowups: 0, recentLeads: [] });
+
+  useEffect(() => {
+    if (isCashier) return;
+    const fetchCrmAllocated = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const branchId = localStorage.getItem('activeBranchId');
+        const headers = {};
+        if (token) headers.Authorization = `Bearer ${token}`;
+        if (branchId) headers['x-active-branch'] = branchId;
+
+        const [leadRes, flwRes] = await Promise.all([
+          axios.get(`${BACKEND_URL}/api/crm/leads?assigned_to=me&limit=5`, { headers }).catch(() => ({ data: {} })),
+          axios.get(`${BACKEND_URL}/api/crm/followups?assigned_to=me&limit=5`, { headers }).catch(() => ({ data: {} }))
+        ]);
+
+        const leads = leadRes.data?.data || [];
+        const leadsCount = leadRes.data?.total || leadRes.data?.myAllocatedCount || leads.length;
+        const flws = flwRes.data?.data || [];
+        const flwsCount = flwRes.data?.total || flwRes.data?.myAllocatedCount || flws.length;
+
+        setCrmStats({
+          allocatedLeads: leadsCount,
+          pendingFollowups: flwsCount,
+          recentLeads: leads.slice(0, 3)
+        });
+      } catch (err) {
+        // ignore
+      }
+    };
+    fetchCrmAllocated();
+  }, [currentUser, isCashier]);
 
   const myAttendance = attendanceData.filter(a => {
     return (
@@ -158,6 +209,243 @@ export default function HrmsEssTab({
           </div>
         </div>
       </div>
+
+      {/* Workstation Banner - POS Billing for Cashier, CRM for Sales */}
+      {isCashier ? (
+        <div className="crm-workstation-banner" style={{ background: "linear-gradient(135deg, #0e121e 0%, #0f2942 60%, #1e3a5f 100%)", border: "1px solid rgba(56, 189, 248, 0.3)" }}>
+          <div className="d-flex flex-column flex-xl-row align-items-start align-items-xl-center justify-content-between gap-4">
+            <div className="d-flex align-items-center gap-3">
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "14px",
+                  background: "rgba(14, 165, 233, 0.22)",
+                  border: "1.5px solid rgba(125, 211, 252, 0.4)",
+                  color: "#38bdf8",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0
+                }}
+              >
+                <Receipt size={22} />
+              </div>
+              <div>
+                <div className="d-flex align-items-center gap-2 mb-1">
+                  <span className="crm-workstation-pill" style={{ background: "rgba(14, 165, 233, 0.2)", borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}>
+                    POS Billing Counter Station
+                  </span>
+                  <span style={{ fontSize: "11px", color: "rgba(186, 230, 253, 0.85)", fontWeight: "500" }}>
+                    Counter Invoicing & Cash Desk
+                  </span>
+                </div>
+                <h3 style={{ fontSize: "17px", fontWeight: "800", color: "#ffffff", margin: "0 0 2px 0" }}>
+                  Store POS Counter Invoicing & Daily Register
+                </h3>
+                <p style={{ fontSize: "12px", color: "#cbd5e1", margin: 0 }}>
+                  Generate customer bills, handle cash & digital payments, and perform daily register day-closing.
+                </p>
+              </div>
+            </div>
+
+            <div className="d-flex align-items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => navigate('/index/salesForm')}
+                className="crm-action-btn-gold"
+                title="Create New POS Bill"
+                style={{
+                  background: "linear-gradient(135deg, #FFD700 0%, #F59E0B 100%)",
+                  color: "#08090D",
+                  border: "1px solid rgba(255, 255, 255, 0.3)",
+                  borderRadius: "10px",
+                  padding: "9px 18px",
+                  fontWeight: "800",
+                  fontSize: "12.5px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 15px rgba(255, 215, 0, 0.35)",
+                  textDecoration: "none"
+                }}
+              >
+                <Plus size={14} color="#08090D" />
+                <span>New POS Bill</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/index/salesList')}
+                className="crm-action-btn-blue"
+                title="View Invoices & Bills"
+                style={{
+                  background: "linear-gradient(135deg, #0284c7, #0369a1)",
+                  backgroundColor: "#0284c7",
+                  color: "#ffffff",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "9px 16px",
+                  borderRadius: "10px",
+                  fontWeight: "700",
+                  fontSize: "12px",
+                  border: "1px solid rgba(255, 255, 255, 0.3)",
+                  boxShadow: "0 4px 12px rgba(2, 132, 199, 0.4)",
+                  cursor: "pointer"
+                }}
+              >
+                <Receipt size={14} color="#ffffff" />
+                <span>Invoices & Bills</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/index/day-closing')}
+                className="crm-action-btn-amber"
+                title="Day Closing Register"
+                style={{
+                  background: "linear-gradient(135deg, #059669, #047857)",
+                  backgroundColor: "#059669",
+                  color: "#ffffff",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "9px 16px",
+                  borderRadius: "10px",
+                  fontWeight: "700",
+                  fontSize: "12px",
+                  border: "1px solid rgba(255, 255, 255, 0.3)",
+                  boxShadow: "0 4px 12px rgba(5, 150, 105, 0.4)",
+                  cursor: "pointer"
+                }}
+              >
+                <CalendarCheck size={14} color="#ffffff" />
+                <span>Day Closing Register</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="crm-workstation-banner">
+        <div className="d-flex flex-column flex-xl-row align-items-start align-items-xl-center justify-content-between gap-4">
+          {/* Left: Branding & Pipeline Info */}
+          <div className="d-flex align-items-center gap-3">
+            <div
+              style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: "14px",
+                background: "rgba(37, 99, 235, 0.22)",
+                border: "1.5px solid rgba(147, 197, 253, 0.4)",
+                color: "#93c5fd",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0
+              }}
+            >
+              <Briefcase size={22} />
+            </div>
+            <div>
+              <div className="d-flex align-items-center gap-2 mb-1">
+                <span className="crm-workstation-pill">
+                  CRM Allocated Workstation
+                </span>
+                <span style={{ fontSize: "11px", color: "rgba(147, 197, 253, 0.85)", fontWeight: "500" }}>
+                  Your Assigned Sales Pipeline
+                </span>
+              </div>
+              <h3 style={{ fontSize: "17px", fontWeight: "800", color: "#ffffff", margin: "0 0 2px 0" }}>
+                Your Allocated CRM Leads & Client Follow-ups
+              </h3>
+              <p style={{ fontSize: "12px", color: "#cbd5e1", margin: 0 }}>
+                Manage inquiries, follow up with customers, and close deals directly from your sales workstation.
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Aligned Stats Deck & Quick Navigation */}
+          <div className="d-flex align-items-center gap-3 flex-wrap">
+            {/* 1. Allocated Leads Box */}
+            <div className="crm-stat-box">
+              <div>
+                <p className="crm-stat-label" style={{ color: "#93c5fd" }}>Allocated Leads</p>
+                <p className="crm-stat-val" style={{ color: "#ffffff" }}>{crmStats.allocatedLeads}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/crm/leads?assigned_to=me')}
+                className="crm-action-btn-blue"
+                title="View your allocated leads"
+                style={{
+                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                  backgroundColor: "#2563eb",
+                  color: "#ffffff",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "7px 14px",
+                  borderRadius: "10px",
+                  fontWeight: "700",
+                  fontSize: "12px",
+                  border: "1px solid rgba(255, 255, 255, 0.3)",
+                  boxShadow: "0 4px 12px rgba(37, 99, 235, 0.4)",
+                  cursor: "pointer"
+                }}
+              >
+                <span style={{ color: "#ffffff", fontWeight: "700" }}>View Leads</span>
+                <ArrowRight size={13} color="#ffffff" />
+              </button>
+            </div>
+
+            {/* 2. Follow-ups Box */}
+            <div className="crm-stat-box">
+              <div>
+                <p className="crm-stat-label" style={{ color: "#fde68a" }}>Follow-ups</p>
+                <p className="crm-stat-val" style={{ color: "#fbbf24" }}>{crmStats.pendingFollowups}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/crm/followups?assigned_to=me')}
+                className="crm-action-btn-amber"
+                title="View your assigned follow-ups"
+                style={{
+                  background: "linear-gradient(135deg, #d97706, #b45309)",
+                  backgroundColor: "#d97706",
+                  color: "#ffffff",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "7px 14px",
+                  borderRadius: "10px",
+                  fontWeight: "700",
+                  fontSize: "12px",
+                  border: "1px solid rgba(255, 255, 255, 0.3)",
+                  boxShadow: "0 4px 12px rgba(217, 119, 6, 0.4)",
+                  cursor: "pointer"
+                }}
+              >
+                <span style={{ color: "#ffffff", fontWeight: "700" }}>Follow-ups</span>
+                <ArrowRight size={13} color="#ffffff" />
+              </button>
+            </div>
+
+            {/* 3. CRM Portal Suite Button */}
+            <button
+              type="button"
+              onClick={() => navigate('/crm')}
+              className="crm-action-btn-gold"
+              title="Open Full CRM Portal"
+            >
+              <span>CRM Suite</span>
+              <ExternalLink size={13} />
+            </button>
+          </div>
+        </div>
+      </div>
+      )}
 
       {/* 2. Personal Key Workforce Metrics (Personal Data Only) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">

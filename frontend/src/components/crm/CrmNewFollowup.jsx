@@ -48,7 +48,15 @@ const initialFormState = {
 
 const CrmNewFollowup = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState(initialFormState);
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
+  const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || storedUser.id === 1;
+  const myName = storedUser.displayName || storedUser.name || storedUser.username || "Me";
+
+  const [formData, setFormData] = useState(() => ({
+    ...initialFormState,
+    assigned_to: !isAdmin ? myName : ""
+  }));
   const [submitting, setSubmitting] = useState(false);
 
   // Entities and employees data
@@ -789,31 +797,47 @@ const CrmNewFollowup = () => {
             <div className="row g-3">
               {/* Assigned To */}
               <div className="col-12 col-md-6">
-                <label style={labelStyle}>Assigned To</label>
-                <select
-                  name="assigned_to"
-                  value={formData.assigned_to ? formData.assigned_to.replace(/\s*\([^)]*\)/, "").trim() : ""}
-                  onChange={handleChange}
-                  style={selectStyle}
-                >
-                  <option value="">
-                    {loadingEmployees ? "Loading sales persons..." : "Select sales person"}
-                  </option>
-                  {employees.map((emp) => (
-                    <option key={emp.id || emp.name} value={emp.name}>
-                      {emp.name}
-                    </option>
-                  ))}
-                  {formData.assigned_to &&
-                    formData.assigned_to !== "Unassigned" &&
-                    !employees.some((e) => e.name === formData.assigned_to) && (
-                      <option value={formData.assigned_to}>
-                        {formData.assigned_to}
+                  <label style={labelStyle}>Assigned To</label>
+                  {isAdmin ? (
+                    <select
+                      name="assigned_to"
+                      value={formData.assigned_to ? formData.assigned_to.replace(/\s*\([^)]*\)/, "").trim() : ""}
+                      onChange={handleChange}
+                      style={selectStyle}
+                    >
+                      <option value="">
+                        {loadingEmployees ? "Loading sales persons..." : "Select sales person"}
                       </option>
-                    )}
-                  <option value="Unassigned">Unassigned</option>
-                </select>
-              </div>
+                      {employees.map((emp) => (
+                        <option key={emp.id || emp.name} value={emp.name}>
+                          {emp.name}
+                        </option>
+                      ))}
+                      {formData.assigned_to &&
+                        formData.assigned_to !== "Unassigned" &&
+                        !employees.some((e) => e.name === formData.assigned_to) && (
+                          <option value={formData.assigned_to}>
+                            {formData.assigned_to}
+                          </option>
+                        )}
+                      <option value="Unassigned">Unassigned</option>
+                    </select>
+                  ) : (
+                    <div>
+                      <input
+                        type="text"
+                        className="form-control"
+                        disabled
+                        readOnly
+                        value={formData.assigned_to || myName}
+                        style={{ ...selectStyle, backgroundColor: "#f8fafc", color: "#334155" }}
+                      />
+                      <small className="text-muted" style={{ fontSize: "11px" }}>
+                        Assigned to your personal sales workstation.
+                      </small>
+                    </div>
+                  )}
+                </div>
 
               {/* Created By (Auto-filled) */}
               <div className="col-12 col-md-6">

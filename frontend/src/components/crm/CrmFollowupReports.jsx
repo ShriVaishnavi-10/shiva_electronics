@@ -105,8 +105,25 @@ const CrmFollowupReports = () => {
           assigned_to: assignedTo !== "All" ? assignedTo : undefined
         }
       });
-      if (res.data?.success) {
-        setAnalytics(res.data.data);
+      if (res.data?.success && res.data.data) {
+        const d = res.data.data;
+        setAnalytics({
+          summary: {
+            total_followups: 0,
+            completed_count: 0,
+            pending_count: 0,
+            rescheduled_count: 0,
+            cancelled_count: 0,
+            total_duration_minutes: 0,
+            completion_rate: 0,
+            ...(d.summary || {})
+          },
+          typeBreakdown: Array.isArray(d.typeBreakdown) ? d.typeBreakdown : [],
+          responseBreakdown: Array.isArray(d.responseBreakdown) ? d.responseBreakdown : [],
+          staffBreakdown: Array.isArray(d.staffBreakdown || d.repBreakdown)
+            ? (d.staffBreakdown || d.repBreakdown)
+            : []
+        });
       }
     } catch (err) {
       console.error("Failed to load follow-up reports summary:", err);
@@ -210,7 +227,10 @@ const CrmFollowupReports = () => {
   };
 
   const totalPages = Math.ceil(totalCount / limit) || 1;
-  const { summary } = analytics;
+  const summary = analytics?.summary || {};
+  const typeBreakdown = Array.isArray(analytics?.typeBreakdown) ? analytics.typeBreakdown : [];
+  const responseBreakdown = Array.isArray(analytics?.responseBreakdown) ? analytics.responseBreakdown : [];
+  const staffBreakdown = Array.isArray(analytics?.staffBreakdown) ? analytics.staffBreakdown : [];
 
   return (
     <div className="crm-content-scroll" style={{ paddingBottom: "70px" }}>
@@ -520,7 +540,7 @@ const CrmFollowupReports = () => {
                 Follow-up Activity by Channel
               </h5>
               <span className="badge bg-light text-secondary border">
-                {analytics.typeBreakdown.length} Types
+                {typeBreakdown.length} Types
               </span>
             </div>
 
@@ -528,11 +548,11 @@ const CrmFollowupReports = () => {
               <div className="text-center py-4">
                 <Spinner size="sm" color="primary" />
               </div>
-            ) : analytics.typeBreakdown.length === 0 ? (
+            ) : typeBreakdown.length === 0 ? (
               <p className="text-muted text-center py-4 mb-0">No activity type data recorded.</p>
             ) : (
               <div className="d-flex flex-column gap-3">
-                {analytics.typeBreakdown.map((item, idx) => {
+                {typeBreakdown.map((item, idx) => {
                   const pct = summary.total_followups > 0 ? ((item.count / summary.total_followups) * 100).toFixed(1) : 0;
                   return (
                     <div key={idx}>
@@ -541,7 +561,7 @@ const CrmFollowupReports = () => {
                         <div className="text-end">
                           <span className="fw-bold text-dark">{item.count} total</span>
                           <span className="text-success ms-2">
-                            ({item.completed_count} completed)
+                            ({item.completed_count || 0} completed)
                           </span>
                         </div>
                       </div>
@@ -571,7 +591,7 @@ const CrmFollowupReports = () => {
                 Customer Feedback & Response
               </h5>
               <span className="badge bg-light text-secondary border">
-                {analytics.responseBreakdown.length} Responses
+                {responseBreakdown.length} Responses
               </span>
             </div>
 
@@ -579,11 +599,11 @@ const CrmFollowupReports = () => {
               <div className="text-center py-4">
                 <Spinner size="sm" color="primary" />
               </div>
-            ) : analytics.responseBreakdown.length === 0 ? (
+            ) : responseBreakdown.length === 0 ? (
               <p className="text-muted text-center py-4 mb-0">No customer response data recorded.</p>
             ) : (
               <div className="d-flex flex-column gap-3">
-                {analytics.responseBreakdown.map((item, idx) => {
+                {responseBreakdown.map((item, idx) => {
                   const pct = summary.total_followups > 0 ? ((item.count / summary.total_followups) * 100).toFixed(1) : 0;
                   const isInterested = item.response === "Interested";
                   const isNotInterested = item.response === "Not Interested";
@@ -641,34 +661,38 @@ const CrmFollowupReports = () => {
               </tr>
             </thead>
             <tbody>
-              {analytics.staffBreakdown.length === 0 ? (
+              {staffBreakdown.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-4 text-muted" style={{ fontSize: "13px" }}>
                     No staff activity records found for this period.
                   </td>
                 </tr>
               ) : (
-                analytics.staffBreakdown.map((staff, idx) => {
-                  const rate = staff.total_assigned > 0 ? ((staff.completed_count / staff.total_assigned) * 100).toFixed(1) : 0;
+                staffBreakdown.map((staff, idx) => {
+                  const total = staff.total_assigned ?? staff.total ?? 0;
+                  const completed = staff.completed_count ?? staff.completed ?? 0;
+                  const pending = staff.pending_count ?? staff.pending ?? 0;
+                  const rate = total > 0 ? ((completed / total) * 100).toFixed(1) : 0;
+                  const repName = staff.staff_name || staff.rep_name || "Unassigned";
 
                   return (
                     <tr key={idx}>
                       <td className="fw-bold text-dark" style={{ fontSize: "13.5px" }}>
-                        {staff.staff_name}
+                        {repName}
                       </td>
                       <td>
                         <span className="badge bg-light text-dark border px-2 py-1" style={{ fontSize: "12px" }}>
-                          {staff.total_assigned} Tasks
+                          {total} Tasks
                         </span>
                       </td>
                       <td>
                         <span className="badge bg-success-subtle text-success px-2 py-1 fw-bold" style={{ fontSize: "12px" }}>
-                          {staff.completed_count} Done
+                          {completed} Done
                         </span>
                       </td>
                       <td>
                         <span className="badge bg-warning-subtle text-warning px-2 py-1 fw-bold" style={{ fontSize: "12px" }}>
-                          {staff.pending_count} Pending
+                          {pending} Pending
                         </span>
                       </td>
                       <td>

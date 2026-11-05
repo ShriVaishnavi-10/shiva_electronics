@@ -14,7 +14,8 @@ import {
   FaChartBar,
   FaChevronDown,
   FaFileAlt,
-  FaCheckDouble
+  FaCheckDouble,
+  FaTrophy
 } from "react-icons/fa";
 
 const CrmSidebar = ({
@@ -30,6 +31,21 @@ const CrmSidebar = ({
   const userName = storedUser.name || storedUser.username || "Admin User";
   const userRole = storedUser.role_name || "CRM Administrator";
 
+  const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
+  const isAdmin =
+    roleLower.includes("admin") ||
+    roleLower.includes("super admin") ||
+    storedUser.id === 1;
+  const isSalesPerson =
+    !isAdmin ||
+    roleLower.includes("sales") ||
+    roleLower.includes("employee") ||
+    roleLower.includes("staff") ||
+    roleLower.includes("cashier") ||
+    storedUser.is_sales_person;
+  const returnPath = isSalesPerson ? "/hrms/dashboard" : "/index/overview";
+  const returnLabel = isSalesPerson ? "Back to My Portal" : "Back to Admin Panel";
+
   const isDashboardActive =
     location.pathname === "/crm" ||
     location.pathname === "/crm/" ||
@@ -42,6 +58,7 @@ const CrmSidebar = ({
   const isReportsActive = location.pathname.startsWith("/crm/reports");
   const isLeadReportsActive = location.pathname === "/crm/reports/leads" || location.pathname === "/crm/reports";
   const isFollowupReportsActive = location.pathname === "/crm/reports/followups";
+  const isPerformanceReportActive = location.pathname === "/crm/reports/performance" || location.pathname === "/crm/performance";
   const [reportsOpen, setReportsOpen] = React.useState(isReportsActive);
 
   React.useEffect(() => {
@@ -93,13 +110,13 @@ const CrmSidebar = ({
         <div
           className={`crm-back-pill ${collapsed ? "collapsed-pill" : ""}`}
           onClick={() => {
-            navigate("/index/overview");
+            navigate(returnPath);
             closeMobile();
           }}
           title="Return to Main Admin Panel"
         >
           <FaArrowLeft style={{ flexShrink: 0 }} />
-          {!collapsed && <span>Back to Admin Panel</span>}
+          {!collapsed && <span>{returnLabel}</span>}
         </div>
 
         {/* CRM Sidebar Navigation */}
@@ -108,43 +125,47 @@ const CrmSidebar = ({
             <div className="crm-sidebar-section-title">Main Menu</div>
           )}
 
-          {/* 1. Dashboard */}
-          <div
-            className={`crm-nav-link ${isDashboardActive ? "active" : ""}`}
-            onClick={() => {
-              navigate("/crm");
-              closeMobile();
-            }}
-            title={collapsed ? "Dashboard" : undefined}
-          >
-            <div className="crm-nav-icon">
-              <FaTachometerAlt />
+          {/* 1. Dashboard (Admins Only) */}
+          {isAdmin && (
+            <div
+              className={`crm-nav-link ${isDashboardActive ? "active" : ""}`}
+              onClick={() => {
+                navigate("/crm");
+                closeMobile();
+              }}
+              title={collapsed ? "Dashboard" : undefined}
+            >
+              <div className="crm-nav-icon">
+                <FaTachometerAlt />
+              </div>
+              {!collapsed && (
+                <>
+                  <span className="crm-nav-text">Dashboard</span>
+                </>
+              )}
             </div>
-            {!collapsed && (
-              <>
-                <span className="crm-nav-text">Dashboard</span>
-              </>
-            )}
-          </div>
+          )}
 
-          {/* 2. Contacts */}
-          <div
-            className={`crm-nav-link ${isContactsActive ? "active" : ""}`}
-            onClick={() => {
-              navigate("/crm/contacts");
-              closeMobile();
-            }}
-            title={collapsed ? "Contacts" : undefined}
-          >
-            <div className="crm-nav-icon">
-              <FaAddressBook />
+          {/* 2. Contacts (Admins Only) */}
+          {isAdmin && (
+            <div
+              className={`crm-nav-link ${isContactsActive ? "active" : ""}`}
+              onClick={() => {
+                navigate("/crm/contacts");
+                closeMobile();
+              }}
+              title={collapsed ? "Contacts" : undefined}
+            >
+              <div className="crm-nav-icon">
+                <FaAddressBook />
+              </div>
+              {!collapsed && (
+                <>
+                  <span className="crm-nav-text">Contacts</span>
+                </>
+              )}
             </div>
-            {!collapsed && (
-              <>
-                <span className="crm-nav-text">Contacts</span>
-              </>
-            )}
-          </div>
+          )}
 
           {/* 3. Leads */}
           <div
@@ -153,36 +174,38 @@ const CrmSidebar = ({
               navigate("/crm/leads");
               closeMobile();
             }}
-            title={collapsed ? "Leads" : undefined}
+            title={collapsed ? (isAdmin ? "Leads" : "Allocated Leads") : undefined}
           >
             <div className="crm-nav-icon">
               <FaUserFriends />
             </div>
             {!collapsed && (
               <>
-                <span className="crm-nav-text">Leads</span>
+                <span className="crm-nav-text">{isAdmin ? "Leads" : "Allocated Leads"}</span>
               </>
             )}
           </div>
 
-          {/* 4. Completed Leads */}
-          <div
-            className={`crm-nav-link ${isCompletedLeadsActive ? "active" : ""}`}
-            onClick={() => {
-              navigate("/crm/completed-leads");
-              closeMobile();
-            }}
-            title={collapsed ? "Completed Leads" : undefined}
-          >
-            <div className="crm-nav-icon">
-              <FaCheckCircle style={{ color: isCompletedLeadsActive ? "#10b981" : undefined }} />
+          {/* 4. Completed Leads (Admins Only) */}
+          {isAdmin && (
+            <div
+              className={`crm-nav-link ${isCompletedLeadsActive ? "active" : ""}`}
+              onClick={() => {
+                navigate("/crm/completed-leads");
+                closeMobile();
+              }}
+              title={collapsed ? "Completed Leads" : undefined}
+            >
+              <div className="crm-nav-icon">
+                <FaCheckCircle style={{ color: isCompletedLeadsActive ? "#10b981" : undefined }} />
+              </div>
+              {!collapsed && (
+                <>
+                  <span className="crm-nav-text">Completed Leads</span>
+                </>
+              )}
             </div>
-            {!collapsed && (
-              <>
-                <span className="crm-nav-text">Completed Leads</span>
-              </>
-            )}
-          </div>
+          )}
 
           {/* 5. Follow-ups */}
           <div
@@ -203,68 +226,120 @@ const CrmSidebar = ({
             )}
           </div>
 
-          {/* 6. Reports Section */}
-          {!collapsed && (
-            <div className="crm-sidebar-section-title mt-2">Analytics & Reports</div>
+          {/* Performance Report (Admins Only) */}
+          {isAdmin && (
+            <div
+              className={`crm-nav-link ${isPerformanceReportActive ? "active" : ""}`}
+              onClick={() => {
+                navigate("/crm/reports/performance");
+                closeMobile();
+              }}
+              title={collapsed ? "Performance Report" : undefined}
+            >
+              <div className="crm-nav-icon">
+                <FaTrophy style={{ color: isPerformanceReportActive ? "#f59e0b" : "#fbbf24" }} />
+              </div>
+              {!collapsed && (
+                <>
+                  <span className="crm-nav-text">Performance Report</span>
+                  <span
+                    className="badge ms-auto"
+                    style={{
+                      fontSize: "9.5px",
+                      background: "rgba(245, 158, 11, 0.18)",
+                      color: "#f59e0b",
+                      border: "1px solid rgba(245, 158, 11, 0.4)",
+                      padding: "2px 6px",
+                      borderRadius: "6px",
+                      fontWeight: "700"
+                    }}
+                  >
+                    Admin
+                  </span>
+                </>
+              )}
+            </div>
           )}
 
-          {/* Reports Parent Menu */}
-          <div
-            className={`crm-nav-link ${isReportsActive ? "active" : ""}`}
-            onClick={() => {
-              if (collapsed) {
-                navigate("/crm/reports/leads");
-                closeMobile();
-              } else {
-                setReportsOpen(!reportsOpen);
-              }
-            }}
-            title={collapsed ? "Reports" : undefined}
-          >
-            <div className="crm-nav-icon">
-              <FaChartBar />
-            </div>
-            {!collapsed && (
-              <>
-                <span className="crm-nav-text">Reports</span>
-                <span className="ms-auto" style={{ fontSize: "11px", color: "#94a3b8" }}>
-                  {reportsOpen ? <FaChevronDown size={10} /> : <FaChevronRight size={10} />}
-                </span>
-              </>
-            )}
-          </div>
+          {/* 6. Reports Section (Admins Only) */}
+          {isAdmin && (
+            <>
+              {!collapsed && (
+                <div className="crm-sidebar-section-title mt-2">Analytics & Reports</div>
+              )}
 
-          {/* Submenu for Reports */}
-          {reportsOpen && !collapsed && (
-            <div className="crm-submenu">
-              {/* Lead Reports */}
+              {/* Reports Parent Menu */}
               <div
-                className={`crm-submenu-link ${isLeadReportsActive ? "active" : ""}`}
+                className={`crm-nav-link ${isReportsActive ? "active" : ""}`}
                 onClick={() => {
-                  navigate("/crm/reports/leads");
-                  closeMobile();
+                  if (collapsed) {
+                    navigate("/crm/reports/leads");
+                    closeMobile();
+                  } else {
+                    setReportsOpen(!reportsOpen);
+                  }
                 }}
+                title={collapsed ? "Reports" : undefined}
               >
-                <div className="crm-submenu-icon">
-                  <FaFileAlt size={12} />
+                <div className="crm-nav-icon">
+                  <FaChartBar />
                 </div>
-                <span>Lead Reports</span>
+                {!collapsed && (
+                  <>
+                    <span className="crm-nav-text">Reports</span>
+                    <span className="ms-auto" style={{ fontSize: "11px", color: "#94a3b8" }}>
+                      {reportsOpen ? <FaChevronDown size={10} /> : <FaChevronRight size={10} />}
+                    </span>
+                  </>
+                )}
               </div>
 
-              {/* Follow-up Reports */}
-              <div
-                className={`crm-submenu-link ${isFollowupReportsActive ? "active" : ""}`}
-                onClick={() => {
-                  navigate("/crm/reports/followups");
-                  closeMobile();
-                }}
-              >
-                <div className="crm-submenu-icon">
-                  <FaCalendarCheck size={12} />
+              {/* Submenu for Reports */}
+              {reportsOpen && !collapsed && (
+                <div className="crm-submenu">
+                  {/* Lead Reports */}
+                  <div
+                    className={`crm-submenu-link ${isLeadReportsActive ? "active" : ""}`}
+                    onClick={() => {
+                      navigate("/crm/reports/leads");
+                      closeMobile();
+                    }}
+                  >
+                    <div className="crm-submenu-icon">
+                      <FaFileAlt size={12} />
+                    </div>
+                    <span>Lead Reports</span>
+                  </div>
+
+                  {/* Follow-up Reports */}
+                  <div
+                    className={`crm-submenu-link ${isFollowupReportsActive ? "active" : ""}`}
+                    onClick={() => {
+                      navigate("/crm/reports/followups");
+                      closeMobile();
+                    }}
+                  >
+                    <div className="crm-submenu-icon">
+                      <FaCalendarCheck size={12} />
+                    </div>
+                    <span>Follow-up Reports</span>
+                  </div>
+                  {/* Performance Report */}
+                  <div
+                    className={`crm-submenu-link ${isPerformanceReportActive ? "active" : ""}`}
+                    onClick={() => {
+                      navigate("/crm/reports/performance");
+                      closeMobile();
+                    }}
+                  >
+                    <div className="crm-submenu-icon">
+                      <FaTrophy size={12} style={{ color: isPerformanceReportActive ? "#f59e0b" : "#fbbf24" }} />
+                    </div>
+                    <span>Performance Report</span>
+                  </div>
                 </div>
-                <span>Follow-up Reports</span>
-              </div>
-            </div>
+              )}
+            </>
           )}
         </div>
 

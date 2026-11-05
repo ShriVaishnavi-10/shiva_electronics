@@ -14,12 +14,13 @@ const initialFormState = {
   lead_title: "",
   first_name: "",
   last_name: "",
-  company_name: "",
-  designation: "",
   mobile_number: "",
   email_address: "",
   whatsapp_number: "",
-  website: "",
+  address: "",
+  city: "",
+  state: "",
+  pincode: "",
   lead_source: "Showroom Walk-in",
   lead_status: "New",
   priority: "Medium",
@@ -38,7 +39,15 @@ const CrmNewLead = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
 
-  const [formData, setFormData] = useState(initialFormState);
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
+  const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || storedUser.id === 1;
+  const myName = storedUser.displayName || storedUser.name || storedUser.username || "Me";
+
+  const [formData, setFormData] = useState(() => ({
+    ...initialFormState,
+    assigned_to: !isAdmin ? myName : ""
+  }));
   const [submitting, setSubmitting] = useState(false);
   const [loadingLead, setLoadingLead] = useState(isEdit);
   const [leadCode, setLeadCode] = useState("");
@@ -105,12 +114,13 @@ const CrmNewLead = () => {
               lead_title: d.lead_title || "",
               first_name: d.first_name || "",
               last_name: d.last_name || "",
-              company_name: d.company_name || "",
-              designation: d.designation || "",
               mobile_number: d.mobile_number || "",
               email_address: d.email_address || "",
               whatsapp_number: d.whatsapp_number || "",
-              website: d.website || "",
+              address: d.address || "",
+              city: d.city || "",
+              state: d.state || "",
+              pincode: d.pincode || "",
               lead_source: d.lead_source || "Showroom Walk-in",
               lead_status: d.lead_status || "New",
               priority: d.priority || "Medium",
@@ -164,12 +174,13 @@ const CrmNewLead = () => {
         lead_title: formData.lead_title.trim(),
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim() || null,
-        company_name: formData.company_name.trim() || null,
-        designation: formData.designation.trim() || null,
         mobile_number: formData.mobile_number.trim(),
         email_address: formData.email_address.trim() || null,
         whatsapp_number: formData.whatsapp_number.trim() || null,
-        website: formData.website.trim() || null,
+        address: formData.address ? formData.address.trim() : null,
+        city: formData.city ? formData.city.trim() : null,
+        state: formData.state ? formData.state.trim() : null,
+        pincode: formData.pincode ? formData.pincode.trim() : null,
         lead_source: formData.lead_source || "Showroom Walk-in",
         lead_status: formData.lead_status || "New",
         priority: formData.priority || "Medium",
@@ -301,7 +312,7 @@ const CrmNewLead = () => {
                   <input
                     type="text"
                     name="lead_title"
-                    placeholder="Enter lead title"
+                    placeholder="Enter lead title (e.g. Inquiring for Smart LED TV)"
                     value={formData.lead_title}
                     onChange={handleChange}
                     required
@@ -337,32 +348,6 @@ const CrmNewLead = () => {
                     style={inputStyle}
                   />
                 </div>
-
-                {/* Company Name */}
-                <div className="col-12 col-md-6">
-                  <label style={labelStyle}>Company Name</label>
-                  <input
-                    type="text"
-                    name="company_name"
-                    placeholder="Company name"
-                    value={formData.company_name}
-                    onChange={handleChange}
-                    style={inputStyle}
-                  />
-                </div>
-
-                {/* Designation */}
-                <div className="col-12 col-md-6">
-                  <label style={labelStyle}>Designation</label>
-                  <input
-                    type="text"
-                    name="designation"
-                    placeholder="Job title"
-                    value={formData.designation}
-                    onChange={handleChange}
-                    style={inputStyle}
-                  />
-                </div>
               </div>
             </div>
 
@@ -379,23 +364,10 @@ const CrmNewLead = () => {
                   <input
                     type="text"
                     name="mobile_number"
-                    placeholder="+91"
+                    placeholder="+91 Mobile number"
                     value={formData.mobile_number}
                     onChange={handleChange}
                     required
-                    style={inputStyle}
-                  />
-                </div>
-
-                {/* Email Address */}
-                <div className="col-12 col-md-6">
-                  <label style={labelStyle}>Email Address</label>
-                  <input
-                    type="email"
-                    name="email_address"
-                    placeholder="example@email.com"
-                    value={formData.email_address}
-                    onChange={handleChange}
                     style={inputStyle}
                   />
                 </div>
@@ -413,14 +385,14 @@ const CrmNewLead = () => {
                   />
                 </div>
 
-                {/* Website */}
-                <div className="col-12 col-md-6">
-                  <label style={labelStyle}>Website</label>
+                {/* Email Address */}
+                <div className="col-12">
+                  <label style={labelStyle}>Email Address</label>
                   <input
-                    type="text"
-                    name="website"
-                    placeholder="Website URL"
-                    value={formData.website}
+                    type="email"
+                    name="email_address"
+                    placeholder="customer@email.com"
+                    value={formData.email_address}
                     onChange={handleChange}
                     style={inputStyle}
                   />
@@ -428,7 +400,67 @@ const CrmNewLead = () => {
               </div>
             </div>
 
-            {/* SECTION 3: Lead Details */}
+            {/* SECTION 3: Address Information */}
+            <div style={{ marginBottom: "28px", borderBottom: "1px solid #f1f5f9", paddingBottom: "24px" }}>
+              <div style={sectionHeadingStyle}>Address Information</div>
+
+              <div className="row g-3">
+                {/* Street Address */}
+                <div className="col-12">
+                  <label style={labelStyle}>Street Address</label>
+                  <input
+                    type="text"
+                    name="address"
+                    placeholder="Door / Flat No, Building, Street Name, Area"
+                    value={formData.address}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  />
+                </div>
+
+                {/* City */}
+                <div className="col-12 col-md-4">
+                  <label style={labelStyle}>City / Town</label>
+                  <input
+                    type="text"
+                    name="city"
+                    placeholder="Enter city / town"
+                    value={formData.city}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  />
+                </div>
+
+                {/* State */}
+                <div className="col-12 col-md-4">
+                  <label style={labelStyle}>State</label>
+                  <input
+                    type="text"
+                    name="state"
+                    placeholder="Tamil Nadu"
+                    value={formData.state}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  />
+                </div>
+
+                {/* Pincode */}
+                <div className="col-12 col-md-4">
+                  <label style={labelStyle}>Pincode</label>
+                  <input
+                    type="text"
+                    name="pincode"
+                    placeholder="6-digit pincode"
+                    value={formData.pincode}
+                    onChange={handleChange}
+                    maxLength={10}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 4: Lead Details */}
             <div style={{ marginBottom: "28px", borderBottom: "1px solid #f1f5f9", paddingBottom: "24px" }}>
               <div style={sectionHeadingStyle}>Lead Details</div>
 
@@ -544,7 +576,7 @@ const CrmNewLead = () => {
               </div>
             </div>
 
-            {/* SECTION 4: Assignment & Follow-up */}
+            {/* SECTION 5: Assignment & Follow-up */}
             <div style={{ marginBottom: "28px" }}>
               <div style={sectionHeadingStyle}>Assignment & Follow-up</div>
 
@@ -552,29 +584,45 @@ const CrmNewLead = () => {
                 {/* Assigned To */}
                 <div className="col-12 col-md-6">
                   <label style={labelStyle}>Assigned To</label>
-                  <select
-                    name="assigned_to"
-                    value={formData.assigned_to ? formData.assigned_to.replace(/\s*\([^)]*\)/, "").trim() : ""}
-                    onChange={handleChange}
-                    style={selectStyle}
-                  >
-                    <option value="">
-                      {loadingEmployees ? "Loading sales persons..." : "Select sales person"}
-                    </option>
-                    {employees.map((emp) => (
-                      <option key={emp.id || emp.name} value={emp.name}>
-                        {emp.name}
+                  {isAdmin ? (
+                    <select
+                      name="assigned_to"
+                      value={formData.assigned_to ? formData.assigned_to.replace(/\s*\([^)]*\)/, "").trim() : ""}
+                      onChange={handleChange}
+                      style={selectStyle}
+                    >
+                      <option value="">
+                        {loadingEmployees ? "Loading sales persons..." : "Select sales person"}
                       </option>
-                    ))}
-                    {formData.assigned_to &&
-                      formData.assigned_to !== "Unassigned" &&
-                      !employees.some((e) => e.name === formData.assigned_to) && (
-                        <option value={formData.assigned_to}>
-                          {formData.assigned_to}
+                      {employees.map((emp) => (
+                        <option key={emp.id || emp.name} value={emp.name}>
+                          {emp.name}
                         </option>
-                      )}
-                    <option value="Unassigned">Unassigned</option>
-                  </select>
+                      ))}
+                      {formData.assigned_to &&
+                        formData.assigned_to !== "Unassigned" &&
+                        !employees.some((e) => e.name === formData.assigned_to) && (
+                          <option value={formData.assigned_to}>
+                            {formData.assigned_to}
+                          </option>
+                        )}
+                      <option value="Unassigned">Unassigned</option>
+                    </select>
+                  ) : (
+                    <div>
+                      <input
+                        type="text"
+                        className="form-control"
+                        disabled
+                        readOnly
+                        value={formData.assigned_to || myName}
+                        style={{ ...selectStyle, backgroundColor: "#f8fafc", color: "#334155" }}
+                      />
+                      <small className="text-muted" style={{ fontSize: "11px" }}>
+                        Assigned to your personal sales workspace.
+                      </small>
+                    </div>
+                  )}
                 </div>
 
                 {/* Follow-up Type */}
