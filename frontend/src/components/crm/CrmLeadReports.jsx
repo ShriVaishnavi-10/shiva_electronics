@@ -107,8 +107,22 @@ const CrmLeadReports = () => {
           assigned_to: assignedTo !== "All" ? assignedTo : undefined
         }
       });
-      if (res.data?.success) {
-        setAnalytics(res.data.data);
+      if (res.data?.success && res.data.data) {
+        const d = res.data.data;
+        setAnalytics({
+          summary: {
+            total_leads: 0,
+            won_leads: 0,
+            lost_leads: 0,
+            total_pipeline_value: 0,
+            total_won_value: 0,
+            conversion_rate: 0,
+            ...(d.summary || {})
+          },
+          statusBreakdown: Array.isArray(d.statusBreakdown) ? d.statusBreakdown : [],
+          sourceBreakdown: Array.isArray(d.sourceBreakdown) ? d.sourceBreakdown : [],
+          repBreakdown: Array.isArray(d.repBreakdown) ? d.repBreakdown : []
+        });
       }
     } catch (err) {
       console.error("Failed to fetch lead analytics:", err);
@@ -210,7 +224,10 @@ const CrmLeadReports = () => {
   };
 
   const totalPages = Math.ceil(totalLeadsCount / limit) || 1;
-  const { summary } = analytics;
+  const summary = analytics?.summary || {};
+  const statusBreakdown = Array.isArray(analytics?.statusBreakdown) ? analytics.statusBreakdown : [];
+  const sourceBreakdown = Array.isArray(analytics?.sourceBreakdown) ? analytics.sourceBreakdown : [];
+  const repBreakdown = Array.isArray(analytics?.repBreakdown) ? analytics.repBreakdown : [];
 
   return (
     <div className="crm-content-scroll" style={{ paddingBottom: "70px" }}>
@@ -520,7 +537,7 @@ const CrmLeadReports = () => {
                 Lead Status & Conversion Pipeline
               </h5>
               <span className="badge bg-light text-secondary border">
-                {analytics.statusBreakdown.length} Stages
+                {statusBreakdown.length} Stages
               </span>
             </div>
 
@@ -528,11 +545,11 @@ const CrmLeadReports = () => {
               <div className="text-center py-4">
                 <Spinner size="sm" color="primary" />
               </div>
-            ) : analytics.statusBreakdown.length === 0 ? (
+            ) : statusBreakdown.length === 0 ? (
               <p className="text-muted text-center py-4 mb-0">No lead status data available.</p>
             ) : (
               <div className="d-flex flex-column gap-3">
-                {analytics.statusBreakdown.map((item, idx) => {
+                {statusBreakdown.map((item, idx) => {
                   const pct = summary.total_leads > 0 ? ((item.count / summary.total_leads) * 100).toFixed(1) : 0;
                   const isWon = ["Closed Won", "Completed", "Won"].includes(item.lead_status);
                   const isLost = item.lead_status === "Lost";
@@ -576,7 +593,7 @@ const CrmLeadReports = () => {
                 Lead Generation by Source
               </h5>
               <span className="badge bg-light text-secondary border">
-                {analytics.sourceBreakdown.length} Sources
+                {sourceBreakdown.length} Sources
               </span>
             </div>
 
@@ -584,11 +601,11 @@ const CrmLeadReports = () => {
               <div className="text-center py-4">
                 <Spinner size="sm" color="primary" />
               </div>
-            ) : analytics.sourceBreakdown.length === 0 ? (
+            ) : sourceBreakdown.length === 0 ? (
               <p className="text-muted text-center py-4 mb-0">No source data available.</p>
             ) : (
               <div className="d-flex flex-column gap-3">
-                {analytics.sourceBreakdown.map((item, idx) => {
+                {sourceBreakdown.map((item, idx) => {
                   const pct = summary.total_leads > 0 ? ((item.count / summary.total_leads) * 100).toFixed(1) : 0;
                   return (
                     <div key={idx}>
@@ -642,14 +659,14 @@ const CrmLeadReports = () => {
               </tr>
             </thead>
             <tbody>
-              {analytics.repBreakdown.length === 0 ? (
+              {repBreakdown.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-4 text-muted" style={{ fontSize: "13px" }}>
                     No sales representative assignments found for this period.
                   </td>
                 </tr>
               ) : (
-                analytics.repBreakdown.map((rep, idx) => {
+                repBreakdown.map((rep, idx) => {
                   const convPct = rep.total_leads > 0 ? ((rep.won_leads / rep.total_leads) * 100).toFixed(1) : 0;
 
                   return (

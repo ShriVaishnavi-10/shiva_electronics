@@ -98,7 +98,7 @@ button:focus-visible {
   a:hover {
     color: #FFD700;
   }
-  button {
+  button:not([class*="crm-"]):not([class*="btn"]):not([style*="background"]) {
     background-color: #f9f9f9;
   }
 }

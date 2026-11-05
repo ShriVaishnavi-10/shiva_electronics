@@ -23,6 +23,10 @@ async function ensureCrmLeadsTables() {
         email_address VARCHAR(150) DEFAULT NULL,
         whatsapp_number VARCHAR(50) DEFAULT NULL,
         website VARCHAR(255) DEFAULT NULL,
+        address TEXT DEFAULT NULL,
+        city VARCHAR(100) DEFAULT NULL,
+        state VARCHAR(100) DEFAULT NULL,
+        pincode VARCHAR(20) DEFAULT NULL,
         lead_source VARCHAR(100) DEFAULT NULL,
         lead_status VARCHAR(50) NOT NULL DEFAULT 'New',
         priority VARCHAR(50) NOT NULL DEFAULT 'Medium',
@@ -46,6 +50,24 @@ async function ensureCrmLeadsTables() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
     `);
 
+    // Ensure address columns exist if table already existed prior to migration
+    const addressCols = [
+      { name: "address", type: "TEXT DEFAULT NULL" },
+      { name: "city", type: "VARCHAR(100) DEFAULT NULL" },
+      { name: "state", type: "VARCHAR(100) DEFAULT NULL" },
+      { name: "pincode", type: "VARCHAR(20) DEFAULT NULL" }
+    ];
+
+    for (const c of addressCols) {
+      const colCheck = await queryAsync(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_leads' AND COLUMN_NAME = ?`,
+        [c.name]
+      );
+      if (!colCheck.length) {
+        await queryAsync(`ALTER TABLE crm_leads ADD COLUMN ${c.name} ${c.type}`);
+      }
+    }
+
     console.log("crm_leads database table ensured successfully.");
   } catch (err) {
     console.error("Error creating crm_leads table:", err.message || err);
@@ -54,4 +76,3 @@ async function ensureCrmLeadsTables() {
 }
 
 module.exports = { ensureCrmLeadsTables };
-

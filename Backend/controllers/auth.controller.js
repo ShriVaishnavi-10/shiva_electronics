@@ -64,13 +64,13 @@ exports.login = async (req, res) => {
 
           // Check if user is mapped to an employee in hrms_employees
           const empQuery = `
-            SELECT id, employee_code, name, designation, department, sales_person_id, profile_image
+            SELECT id, employee_code, name, designation, department, sales_person_id, profile_image, branch_id
             FROM hrms_employees
-            WHERE user_id = ? OR (email = ? AND email IS NOT NULL AND email != '') OR (phone = ? AND phone IS NOT NULL AND phone != '')
+            WHERE user_id = ? OR (email = ? AND email IS NOT NULL AND email != '') OR (phone = ? AND phone IS NOT NULL AND phone != '') OR LOWER(name) = LOWER(?)
             LIMIT 1
           `;
 
-          db.query(empQuery, [user.id, user.email, user.phone], (empErr, empRows) => {
+          db.query(empQuery, [user.id, user.email, user.phone, user.full_name || user.username], (empErr, empRows) => {
             const emp = empRows && empRows.length > 0 ? empRows[0] : null;
 
             // Load user branches
@@ -83,7 +83,13 @@ exports.login = async (req, res) => {
               [user.id],
               (brErr, brRows) => {
                 const userBranches = brRows || [];
-                const branchIds = userBranches.map((b) => b.branch_id);
+                let branchIds = userBranches.map((b) => b.branch_id);
+                if (!branchIds.length && emp?.branch_id) {
+                  branchIds = [emp.branch_id];
+                }
+                if (!branchIds.length) {
+                  branchIds = [2];
+                }
 
                 // Load permissions
                 db.query(
@@ -96,7 +102,7 @@ exports.login = async (req, res) => {
                     const permissions = (permRows || []).map((r) => r.permission_key);
 
                     const roleLower = (user.role_name || "").toLowerCase();
-                    const isCashier = roleLower.includes("cashier");
+                    const isCashier = roleLower.includes("cashier") || user.role_id === 8;
                     const isAdmin = roleLower.includes("admin") || roleLower.includes("manager") || user.id === 1;
                     const isStaffRole = !isAdmin && !isCashier && (
                       roleLower.includes("sales") ||
@@ -127,32 +133,55 @@ exports.login = async (req, res) => {
                       redirectUrl = "/hrms/dashboard";
                     }
 
-                    return res.json({
-                      message: "Login successful",
-                      token,
-                      redirect: redirectUrl,
-                      user: {
-                        id: user.id,
-                        username: user.username,
-                        full_name: user.full_name || emp?.name || user.username,
-                        name: user.full_name || emp?.name || user.username,
-                        email: user.email,
-                        phone: user.phone,
-                        role_id: user.role_id,
-                        role_name: user.role_name || (isCashier ? "Cashier" : isStaffRole ? "Sales Person" : "Staff"),
-                        role: user.role_name || (isCashier ? "Cashier" : isStaffRole ? "Sales Person" : "Staff"),
-                        branch_ids: branchIds,
-                        branches: userBranches,
-                        permissions,
-                        is_staff: isStaffRole,
-                        is_cashier: isCashier,
-                        employee_id: emp?.id || null,
-                        employee_code: emp?.employee_code || null,
-                        sales_person_id: emp?.sales_person_id || null,
-                        designation: emp?.designation || null,
-                        profile_image: emp?.profile_image || null,
-                      },
-                    });
+                    const targetEmpId = emp?.id;
+                    db.query(
+                      `SELECT a.id, a.employee_id, DATE_FORMAT(a.attendance_date, '%Y-%m-%d') as attendance_date,
+                              a.check_in, a.check_out, a.status, a.notes
+                       FROM hrms_attendance a
+                       WHERE a.employee_id = ? AND a.attendance_date = CURDATE()
+                       LIMIT 1`,
+                      [targetEmpId || 0],
+                      (pErr, pRows) => {
+                        const todayPunch = pRows && pRows.length ? {
+                          id: pRows[0].id,
+                          employee_id: pRows[0].employee_id,
+                          attendance_date: pRows[0].attendance_date,
+                          date: pRows[0].attendance_date,
+                          check_in: pRows[0].check_in,
+                          check_out: pRows[0].check_out,
+                          status: pRows[0].status,
+                          notes: pRows[0].notes
+                        } : null;
+
+                        return res.json({
+                          message: "Login successful",
+                          token,
+                          redirect: redirectUrl,
+                          user: {
+                            id: user.id,
+                            username: user.username,
+                            full_name: user.full_name || emp?.name || user.username,
+                            name: user.full_name || emp?.name || user.username,
+                            email: user.email,
+                            phone: user.phone,
+                            role_id: user.role_id,
+                            role_name: user.role_name || (isCashier ? "Cashier" : isStaffRole ? "Sales Person" : "Staff"),
+                            role: user.role_name || (isCashier ? "Cashier" : isStaffRole ? "Sales Person" : "Staff"),
+                            branch_ids: branchIds,
+                            branches: userBranches.length ? userBranches : [{ branch_id: branchIds[0], branch_name: "SHIVA ELECTRONICS" }],
+                            permissions,
+                            is_staff: isStaffRole,
+                            is_cashier: isCashier,
+                            employee_id: emp?.id || null,
+                            employee_code: emp?.employee_code || null,
+                            sales_person_id: emp?.sales_person_id || null,
+                            designation: emp?.designation || null,
+                            profile_image: emp?.profile_image || null,
+                            today_punch: todayPunch,
+                          },
+                        });
+                      }
+                    );
                   }
                 );
               }
@@ -221,32 +250,54 @@ exports.login = async (req, res) => {
 
         const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: "12h" });
 
-        return res.json({
-          message: "Login successful",
-          token,
-          redirect: "/hrms/dashboard",
-          user: {
-            id: emp.id,
-            employee_id: emp.id,
-            username: emp.email || emp.employee_code,
-            full_name: emp.name,
-            name: emp.name,
-            email: emp.email,
-            phone: emp.phone,
-            role_name: "Sales Person",
-            role: "Sales Person",
-            is_staff: true,
-            employee_code: emp.employee_code,
-            sales_person_id: emp.sales_person_id,
-            designation: emp.designation,
-            department: emp.department,
-            branch_id: emp.branch_id || 2,
-            branch_ids: [emp.branch_id || 2],
-            branches: [{ id: emp.branch_id || 2, branch_name: "Main Branch" }],
-            permissions: ["hrms.selfservice", "hrms.view_personal_sales", "hrms.punch"],
-            profile_image: emp.profile_image || null,
-          },
-        });
+        db.query(
+          `SELECT a.id, a.employee_id, DATE_FORMAT(a.attendance_date, '%Y-%m-%d') as attendance_date,
+                  a.check_in, a.check_out, a.status, a.notes
+           FROM hrms_attendance a
+           WHERE a.employee_id = ? AND a.attendance_date = CURDATE()
+           LIMIT 1`,
+          [emp.id],
+          (pErr, pRows) => {
+            const todayPunch = pRows && pRows.length ? {
+              id: pRows[0].id,
+              employee_id: pRows[0].employee_id,
+              attendance_date: pRows[0].attendance_date,
+              date: pRows[0].attendance_date,
+              check_in: pRows[0].check_in,
+              check_out: pRows[0].check_out,
+              status: pRows[0].status,
+              notes: pRows[0].notes
+            } : null;
+
+            return res.json({
+              message: "Login successful",
+              token,
+              redirect: "/hrms/dashboard",
+              user: {
+                id: emp.id,
+                employee_id: emp.id,
+                username: emp.email || emp.employee_code,
+                full_name: emp.name,
+                name: emp.name,
+                email: emp.email,
+                phone: emp.phone,
+                role_name: "Sales Person",
+                role: "Sales Person",
+                is_staff: true,
+                employee_code: emp.employee_code,
+                sales_person_id: emp.sales_person_id,
+                designation: emp.designation,
+                department: emp.department,
+                branch_id: emp.branch_id || 2,
+                branch_ids: [emp.branch_id || 2],
+                branches: [{ id: emp.branch_id || 2, branch_name: "Main Branch" }],
+                permissions: ["hrms.selfservice", "hrms.view_personal_sales", "hrms.punch"],
+                profile_image: emp.profile_image || null,
+                today_punch: todayPunch,
+              },
+            });
+          }
+        );
       });
     });
   } catch (e) {

@@ -63,6 +63,7 @@ import CrmNewFollowup from "./components/crm/CrmNewFollowup";
 import CrmCompletedLeads from "./components/crm/CrmCompletedLeads";
 import CrmLeadReports from "./components/crm/CrmLeadReports";
 import CrmFollowupReports from "./components/crm/CrmFollowupReports";
+import CrmPerformanceReport from "./components/crm/CrmPerformanceReport";
 import HrmsDashboard from "./components/HrmsDashboard";
 
 function App() {
@@ -106,6 +107,8 @@ function App() {
           <Route path="reports" element={<CrmLeadReports />} />
           <Route path="reports/leads" element={<CrmLeadReports />} />
           <Route path="reports/followups" element={<CrmFollowupReports />} />
+          <Route path="reports/performance" element={<CrmPerformanceReport />} />
+          <Route path="performance" element={<CrmPerformanceReport />} />
         </Route>
         {/* Dedicated Standalone HRMS Panel (Separate URL outside Billing layout) */}
         <Route path="/hrms" element={<HrmsDashboard />} />

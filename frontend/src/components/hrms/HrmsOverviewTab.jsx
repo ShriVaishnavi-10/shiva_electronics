@@ -158,13 +158,13 @@ export default function HrmsOverviewTab({
           </Card>
         </Col>
 
-        {/* Present Today */}
+        {/* Checked In Today */}
         <Col xs={6} sm={4} lg={2}>
           <Card className="border-0 shadow-sm rounded-3 h-100 bg-white">
             <CardBody className="p-3 d-flex flex-column justify-content-between h-100">
               <div className="d-flex align-items-center justify-content-between mb-2">
                 <span className="small text-muted fw-bold text-uppercase" style={{ fontSize: "0.72rem" }}>
-                  Present Today
+                  Checked In Today
                 </span>
                 <div
                   className="rounded-2 d-flex align-items-center justify-content-center text-success"
@@ -175,12 +175,12 @@ export default function HrmsOverviewTab({
               </div>
               <div className="my-1">
                 <h4 className="mb-0 fw-bold text-success fs-4">
-                  {summary.todayPresent || 0}
+                  {summary.todayCheckedIn != null ? summary.todayCheckedIn : ((summary.todayPresent || 0) + (summary.todayLate || 0) + (summary.todayHalfDay || 0))}
                 </h4>
               </div>
               <div className="mt-auto pt-1">
                 <span className="badge bg-success bg-opacity-10 text-success fw-semibold" style={{ fontSize: "0.72rem" }}>
-                  {summary.attendanceRate || 0}% Attended
+                  {summary.todayPresent || 0} On-Time • {summary.todayLate || 0} Late
                 </span>
               </div>
             </CardBody>
@@ -416,9 +416,14 @@ export default function HrmsOverviewTab({
             <CardBody className="p-3">
               <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
-                  <h6 className="fw-bold mb-0 text-dark">
-                    Today's Staff Attendance ({attendanceDate})
-                  </h6>
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <h6 className="fw-bold mb-0 text-dark">
+                      Today's Staff Attendance ({attendanceDate})
+                    </h6>
+                    <span className="badge bg-success bg-opacity-10 text-success fw-bold" style={{ fontSize: "0.75rem" }}>
+                      Checked In: {summary.todayCheckedIn != null ? summary.todayCheckedIn : todayAttendance.filter(e => e.check_in).length} / {summary.activeEmployees || todayAttendance.length} Staff
+                    </span>
+                  </div>
                   <small className="text-muted">
                     Live employee presence status & quick update
                   </small>
