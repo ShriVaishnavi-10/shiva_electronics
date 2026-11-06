@@ -146,6 +146,8 @@ exports.createSalesPerson = (req, res) => {
             `INSERT INTO users (username, password, full_name, email, phone, role_id, branch_id, status)
              VALUES (?, ?, ?, ?, ?, 7, ?, ?)
              ON DUPLICATE KEY UPDATE 
+               id = LAST_INSERT_ID(id),
+               username = VALUES(username),
                password = VALUES(password), 
                full_name = VALUES(full_name), 
                email = VALUES(email), 
@@ -162,7 +164,18 @@ exports.createSalesPerson = (req, res) => {
               status === "Inactive" ? "Inactive" : "Active",
             ],
             (uErr, uRes) => {
-              const userId = uRes?.insertId;
+              if (uErr) {
+                console.error("createSalesPerson login user error:", uErr);
+                const statusCode = uErr.code === "ER_DUP_ENTRY" ? 409 : 500;
+                return res.status(statusCode).json({
+                  success: false,
+                  message: statusCode === 409
+                    ? "Login username or email already belongs to another account"
+                    : "Failed to create salesperson login account",
+                });
+              }
+
+              const userId = uRes.insertId;
 
               // 2. Insert or update in hrms_employees table
               db.query(
@@ -173,6 +186,14 @@ exports.createSalesPerson = (req, res) => {
                  LIMIT 1`,
                 [salesPersonId, email || "__none__", phone || "__none__"],
                 (empErr, empRows) => {
+                  if (empErr) {
+                    console.error("createSalesPerson employee lookup error:", empErr);
+                    return res.status(500).json({
+                      success: false,
+                      message: "Failed to link salesperson HRMS account",
+                    });
+                  }
+
                   if (empRows && empRows.length > 0) {
                     db.query(
                       `UPDATE hrms_employees 
@@ -187,7 +208,17 @@ exports.createSalesPerson = (req, res) => {
                         userId || null,
                         status === "Inactive" ? "Inactive" : "Active",
                         empRows[0].id,
-                      ]
+                      ],
+                      (updateErr) => {
+                        if (updateErr) {
+                          console.error("createSalesPerson employee update error:", updateErr);
+                          return res.status(500).json({
+                            success: false,
+                            message: "Failed to link salesperson HRMS account",
+                          });
+                        }
+                        sendCreatedResponse();
+                      },
                     );
                   } else {
                     db.query(
@@ -204,7 +235,17 @@ exports.createSalesPerson = (req, res) => {
                         salesPersonId,
                         userId || null,
                         hashedPassword,
-                      ]
+                      ],
+                      (insertErr) => {
+                        if (insertErr) {
+                          console.error("createSalesPerson employee insert error:", insertErr);
+                          return res.status(500).json({
+                            success: false,
+                            message: "Failed to create salesperson HRMS account",
+                          });
+                        }
+                        sendCreatedResponse();
+                      },
                     );
                   }
                 }
@@ -213,15 +254,25 @@ exports.createSalesPerson = (req, res) => {
           );
         } catch (hErr) {
           console.error("Seller password hash error:", hErr);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to secure salesperson login password",
+          });
         }
+      } else {
+        return sendCreatedResponse();
       }
 
-      res.status(201).json({
-        success: true,
-        message: "Sales person created successfully with Personal HRMS portal login",
-        id: salesPersonId,
-        employee_code: codeToUse,
-      });
+      function sendCreatedResponse() {
+        res.status(201).json({
+          success: true,
+          message: create_login
+            ? "Sales person created successfully with Personal HRMS portal login"
+            : "Sales person created successfully",
+          id: salesPersonId,
+          employee_code: codeToUse,
+        });
+      }
     });
   };
 

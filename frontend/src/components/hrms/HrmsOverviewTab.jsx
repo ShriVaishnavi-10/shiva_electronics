@@ -61,7 +61,6 @@ export default function HrmsOverviewTab({
   fetchDashboardData,
   onRefresh,
   attendanceDate = new Date().toISOString().slice(0, 10),
-  setAttendanceDate = () => {},
   setActiveTab,
   onNavigate,
   handleQuickStatusChange = () => {},
@@ -211,7 +210,7 @@ export default function HrmsOverviewTab({
 
   return (
     <div className="d-flex flex-column gap-3">
-      {/* 0. DASHBOARD OVERVIEW DATE NAVIGATION BAR */}
+      {/* 0. DASHBOARD OVERVIEW */}
       <Card className="border-0 shadow-sm rounded-3 bg-white">
         <CardBody className="p-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
           <div className="d-flex align-items-center gap-2">
@@ -222,68 +221,20 @@ export default function HrmsOverviewTab({
               <FaCalendarAlt size={16} />
             </div>
             <div>
-              <div className="fw-bold text-dark fs-6">
-                Dashboard Overview Date:{" "}
-                <span className="text-primary">{formatDateDisplay(attendanceDate)}</span>
-              </div>
-              <small className="text-muted">
-                Displaying daily metrics, staff attendance, and presence logs for this date
-              </small>
+              <div className="fw-bold text-dark fs-6">HRMS Dashboard</div>
+              <small className="text-muted">Daily workforce metrics and staff attendance</small>
             </div>
           </div>
 
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            <div className="d-flex align-items-center gap-1">
-              <span className="small text-muted fw-semibold me-1">Date:</span>
-              <Input
-                type="date"
-                bsSize="sm"
-                value={attendanceDate}
-                onChange={(e) => {
-                  setAttendanceDate(e.target.value);
-                  refresh(e.target.value);
-                }}
-                style={{ width: 145, fontSize: "13px", fontWeight: 500 }}
-              />
-            </div>
-
-            <Button
-              size="sm"
-              color={attendanceDate === todayStr ? "primary" : "light"}
-              className="border fw-semibold"
-              onClick={() => {
-                setAttendanceDate(todayStr);
-                refresh(todayStr);
-              }}
-            >
-              Today
-            </Button>
-
-            <Button
-              size="sm"
-              color="light"
-              className="border fw-semibold text-secondary"
-              onClick={() => {
-                const y = new Date();
-                y.setDate(y.getDate() - 1);
-                const yStr = y.toISOString().slice(0, 10);
-                setAttendanceDate(yStr);
-                refresh(yStr);
-              }}
-            >
-              Yesterday
-            </Button>
-
-            <Button
-              size="sm"
-              color="light"
-              className="border text-secondary"
-              onClick={() => refresh(attendanceDate)}
-              title="Refresh Dashboard Summary"
-            >
-              <FaSync size={11} className={loading ? "fa-spin" : ""} />
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            color="light"
+            className="border text-secondary"
+            onClick={() => refresh(attendanceDate)}
+            title="Refresh Dashboard Summary"
+          >
+            <FaSync size={11} className={loading ? "fa-spin" : ""} />
+          </Button>
         </CardBody>
       </Card>
 
@@ -318,22 +269,13 @@ export default function HrmsOverviewTab({
           </Card>
         </Col>
 
-<<<<<<< HEAD
         {/* Present on Selected Date */}
         <Col xs={6} sm={4} md={true}>
-=======
-        {/* Checked In Today */}
-        <Col xs={6} sm={4} lg={2}>
->>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
           <Card className="border-0 shadow-sm rounded-3 h-100 bg-white">
             <CardBody className="p-3 d-flex flex-column justify-content-between h-100">
               <div className="d-flex align-items-center justify-content-between mb-2">
                 <span className="small text-muted fw-bold text-uppercase" style={{ fontSize: "0.72rem" }}>
-<<<<<<< HEAD
                   Present
-=======
-                  Checked In Today
->>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
                 </span>
                 <div
                   className="rounded-2 d-flex align-items-center justify-content-center text-success"
@@ -344,12 +286,12 @@ export default function HrmsOverviewTab({
               </div>
               <div className="my-1">
                 <h4 className="mb-0 fw-bold text-success fs-4">
-                  {summary.todayCheckedIn != null ? summary.todayCheckedIn : ((summary.todayPresent || 0) + (summary.todayLate || 0) + (summary.todayHalfDay || 0))}
+                  {summary.todayPresent || 0}
                 </h4>
               </div>
               <div className="mt-auto pt-1">
                 <span className="badge bg-success bg-opacity-10 text-success fw-semibold" style={{ fontSize: "0.72rem" }}>
-                  {summary.todayPresent || 0} On-Time • {summary.todayLate || 0} Late
+                  {summary.attendanceRate || 0}% Attended
                 </span>
               </div>
             </CardBody>
@@ -462,16 +404,6 @@ export default function HrmsOverviewTab({
                   </small>
                 </div>
                 <div className="d-flex align-items-center gap-2">
-                  <Input
-                    type="date"
-                    bsSize="sm"
-                    value={attendanceDate}
-                    onChange={(e) => {
-                      setAttendanceDate(e.target.value);
-                      refresh(e.target.value);
-                    }}
-                    style={{ maxWidth: 140, height: "31px", fontSize: "12px" }}
-                  />
                   <Button
                     size="sm"
                     outline
@@ -551,20 +483,9 @@ export default function HrmsOverviewTab({
             <CardBody className="p-3">
               <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
-<<<<<<< HEAD
                   <h6 className="fw-bold mb-0 text-dark">
                     Staff Attendance on {formatDateDisplay(attendanceDate)}
                   </h6>
-=======
-                  <div className="d-flex align-items-center gap-2 flex-wrap">
-                    <h6 className="fw-bold mb-0 text-dark">
-                      Today's Staff Attendance ({attendanceDate})
-                    </h6>
-                    <span className="badge bg-success bg-opacity-10 text-success fw-bold" style={{ fontSize: "0.75rem" }}>
-                      Checked In: {summary.todayCheckedIn != null ? summary.todayCheckedIn : todayAttendance.filter(e => e.check_in).length} / {summary.activeEmployees || todayAttendance.length} Staff
-                    </span>
-                  </div>
->>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
                   <small className="text-muted">
                     Instant check-in status, punch time, and direct updates
                   </small>

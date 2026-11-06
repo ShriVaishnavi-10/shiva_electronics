@@ -23,6 +23,7 @@ import { FaPlus, FaTrash, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 import { apiUrl } from "../config/urls";
+import "../style/purchase.css";
 
 const API = apiUrl();
 const VENDOR_API = apiUrl("vendors");
@@ -917,7 +918,7 @@ export default function PurchaseUI() {
   };
 
   return (
-    <div ref={wrapperRef}>
+    <div ref={wrapperRef} className="purchase-form">
       {/* -------- Purchase ID, PO Number, Purchase Date, Vehicle No -------- */}
       <Row className="mb-3 g-2">
         <Col md={3}>
@@ -952,95 +953,97 @@ export default function PurchaseUI() {
       </Row>
 
       {/* -------- Vendor Search + Add Vendor -------- */}
-      <Col md={6} className="position-relative mb-3">
-        <div className="p-3 bg-white rounded shadow-sm d-flex gap-2 align-items-center">
-          <div className="position-relative flex-grow-1">
-            <Input
-              placeholder="Search Vendor"
-              value={vendorSearch}
-              onChange={(e) => {
-                const value = e.target.value;
-                setVendorSearchLocked(false);
-                setSelectedVendor((prev) =>
-                  prev && (prev.company_name === value || prev.vendor_name === value) ? prev : null,
-                );
-                setVendorSearch(value);
-                setActiveVendorIndex(-1);
-              }}
-              onKeyDown={handleVendorKeyDown}
-              autoComplete="off"
-              innerRef={vendorInputRef}
-            />
-            {selectedVendor && (
-              <span
-                style={{
-                  position: "absolute",
-                  right: "10px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  cursor: "pointer",
-                  color: "#888",
-                  fontWeight: "bold",
-                  fontSize: "16px",
-                  zIndex: 5,
-                }}
-                onClick={() => {
-                  setSelectedVendor(null);
-                  setVendorSearch("");
+      <Row className="mb-3 g-2">
+        <Col md={6} className="position-relative">
+          <div className="p-3 bg-white rounded shadow-sm d-flex gap-2 align-items-center">
+            <div className="position-relative flex-grow-1">
+              <Input
+                placeholder="Search Vendor"
+                value={vendorSearch}
+                onChange={(e) => {
+                  const value = e.target.value;
                   setVendorSearchLocked(false);
-                  if (vendorInputRef.current) vendorInputRef.current.focus();
+                  setSelectedVendor((prev) =>
+                    prev && (prev.company_name === value || prev.vendor_name === value) ? prev : null,
+                  );
+                  setVendorSearch(value);
+                  setActiveVendorIndex(-1);
                 }}
-                title="Clear selected vendor"
-              >
-                ✕
-              </span>
-            )}
-          </div>
-          <Button color="primary" onClick={() => setVendorModalOpen(true)} className="text-nowrap">
-            <FaPlus /> Add Vendor
-          </Button>
-        </div>
-
-        {selectedVendor && (
-          <div className="px-3 py-1 mt-1 text-muted small d-flex gap-3 flex-wrap">
-            <span>
-              <strong>Selected:</strong> {selectedVendor.company_name || selectedVendor.vendor_name}
-            </span>
-            {selectedVendor.mobile && <span><strong>Mobile:</strong> {selectedVendor.mobile}</span>}
-            {selectedVendor.gst_no && <span><strong>GST:</strong> {selectedVendor.gst_no}</span>}
-          </div>
-        )}
-
-        {showVendorCard && (
-          <Card
-            className="position-absolute w-100 shadow mt-1"
-            style={{ zIndex: 10 }}
-          >
-            <CardBody className="p-2">
-              {vendors.length ? (
-                vendors.map((v, index) => (
-                  <div
-                    key={v.id}
-                    className={`p-2 border-bottom vendor-item ${
-                      index === activeVendorIndex ? "bg-primary text-white" : ""
-                    }`}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => handleSelectVendor(v)}
-                  >
-                    <strong>{v.company_name || v.vendor_name}</strong>
-                    <br />
-                    <small className="text-muted">{v.mobile}</small>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-muted p-2">
-                  No Vendors Found
-                </div>
+                onKeyDown={handleVendorKeyDown}
+                autoComplete="off"
+                innerRef={vendorInputRef}
+              />
+              {selectedVendor && (
+                <span
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    cursor: "pointer",
+                    color: "#888",
+                    fontWeight: "bold",
+                    fontSize: "16px",
+                    zIndex: 5,
+                  }}
+                  onClick={() => {
+                    setSelectedVendor(null);
+                    setVendorSearch("");
+                    setVendorSearchLocked(false);
+                    if (vendorInputRef.current) vendorInputRef.current.focus();
+                  }}
+                  title="Clear selected vendor"
+                >
+                  ✕
+                </span>
               )}
-            </CardBody>
-          </Card>
-        )}
-      </Col>
+            </div>
+            <Button color="primary" onClick={() => setVendorModalOpen(true)} className="text-nowrap">
+              <FaPlus /> Add Vendor
+            </Button>
+          </div>
+
+          {selectedVendor && (
+            <div className="px-3 py-1 mt-1 text-muted small d-flex gap-3 flex-wrap">
+              <span>
+                <strong>Selected:</strong> {selectedVendor.company_name || selectedVendor.vendor_name}
+              </span>
+              {selectedVendor.mobile && <span><strong>Mobile:</strong> {selectedVendor.mobile}</span>}
+              {selectedVendor.gst_no && <span><strong>GST:</strong> {selectedVendor.gst_no}</span>}
+            </div>
+          )}
+
+          {showVendorCard && (
+            <Card
+              className="position-absolute w-100 shadow mt-1"
+              style={{ zIndex: 10 }}
+            >
+              <CardBody className="p-2">
+                {vendors.length ? (
+                  vendors.map((v, index) => (
+                    <div
+                      key={v.id}
+                      className={`p-2 border-bottom vendor-item ${
+                        index === activeVendorIndex ? "bg-primary text-white" : ""
+                      }`}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => handleSelectVendor(v)}
+                    >
+                      <strong>{v.company_name || v.vendor_name}</strong>
+                      <br />
+                      <small className="text-muted">{v.mobile}</small>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-muted p-2">
+                    No Vendors Found
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          )}
+        </Col>
+      </Row>
 
       {/* -------- Vendor Modal (Centered) -------- */}
       <Modal
@@ -1414,7 +1417,7 @@ export default function PurchaseUI() {
         <div style={{ backgroundColor: "#f8f9fa" }}>
           {/* -------- Table: S.No, Product name, HSN Code, Qty, Price, Margin %, Selling Rate, Tax, Total, Action -------- */}
           <div className="table-responsive">
-            <Table bordered hover size="sm" className="align-middle table-fixed text-nowrap">
+            <Table bordered hover size="sm" className="align-middle table-fixed text-nowrap purchase-items-table">
               <thead className="bg-light text-center">
                 <tr>
                   <th style={{ width: "60px" }}>S.No</th>
@@ -1435,7 +1438,7 @@ export default function PurchaseUI() {
               <tbody className="text-center">
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="text-muted">
+                    <td colSpan={13} className="text-muted">
                       Select product to add
                     </td>
                   </tr>
@@ -1660,8 +1663,8 @@ export default function PurchaseUI() {
       </Card>
 
       {/* -------- Payment Type + Submit -------- */}
-      <Row className="mt-3 align-items-center g-3">
-        <Col md={paymentType === "Credit" ? 2 : 3}>
+      <Row className="mt-3 align-items-end g-3">
+        <Col xs={12} sm={6} md={2}>
           <Label className="fw-bold">Payment Type *</Label>
           <Input
             type="select"
@@ -1685,7 +1688,7 @@ export default function PurchaseUI() {
 
         {paymentType === "Credit" && (
           <>
-            <Col md={2}>
+            <Col xs={12} sm={6} md={2}>
               <Label className="fw-bold">Advance Paid (₹)</Label>
               <Input
                 type="number"
@@ -1697,7 +1700,7 @@ export default function PurchaseUI() {
               />
             </Col>
             {Number(advanceAmount) > 0 && (
-              <Col md={2}>
+              <Col xs={12} sm={6} md={2}>
                 <Label className="fw-bold">Advance Account</Label>
                 <Input
                   type="select"
@@ -1713,7 +1716,7 @@ export default function PurchaseUI() {
                 </Input>
               </Col>
             )}
-            <Col md={Number(advanceAmount) > 0 ? 2 : 3}>
+            <Col xs={12} sm={6} md={2}>
               <Label className="fw-bold">Due Date</Label>
               <Input
                 type="date"
@@ -1725,7 +1728,7 @@ export default function PurchaseUI() {
         )}
 
         {(paymentType !== "Cash" && paymentType !== "Credit" && paymentType !== "") && (
-          <Col md={3}>
+          <Col xs={12} sm={6} md={2}>
             <Label className="fw-bold">Bank Account *</Label>
             <Input
               type="select"
@@ -1742,7 +1745,7 @@ export default function PurchaseUI() {
           </Col>
         )}
 
-        <Col md={paymentType === "Credit" ? (Number(advanceAmount) > 0 ? 3 : 4) : ((paymentType !== "Cash" && paymentType !== "") ? 3 : 4)} className="text-end ms-auto">
+        <Col xs={12} sm={6} md={2} className="text-end">
           <div className="small text-muted mb-0">
             Items Subtotal: ₹{itemsSubtotal.toFixed(2)}
           </div>
@@ -1764,7 +1767,7 @@ export default function PurchaseUI() {
           )}
         </Col>
 
-        <Col md={2} className="text-end">
+        <Col xs={12} sm={6} md={2} className="text-end">
           <Button color="primary" size="lg" className="w-100" onClick={submitPurchase}>
             Save Purchase
           </Button>

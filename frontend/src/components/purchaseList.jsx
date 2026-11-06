@@ -18,6 +18,7 @@ import {
   Badge,
   Card,
   CardBody,
+  Form,
   Spinner,
 } from "reactstrap";
 import {
@@ -39,6 +40,7 @@ import {
 import ReactPaginate from "react-paginate";
 import { toast } from "react-toastify";
 import { apiUrl } from "../config/urls";
+import "../style/purchase.css";
 
 const API = apiUrl("purchases");
 const LIST_API = `${API}/list`;
@@ -121,6 +123,10 @@ export default function PurchaseList() {
   const [returnsPage, setReturnsPage] = useState(1);
   const [returnsLimit, setReturnsLimit] = useState(25);
   const [returnsLoading, setReturnsLoading] = useState(false);
+  const [returnPurchaseSearch, setReturnPurchaseSearch] = useState("");
+  const [returnPurchaseResults, setReturnPurchaseResults] = useState([]);
+  const [returnPurchaseSearchLoading, setReturnPurchaseSearchLoading] = useState(false);
+  const [returnPurchaseSearchDone, setReturnPurchaseSearchDone] = useState(false);
 
   // Create Return Modal State
   const [returnModalOpen, setReturnModalOpen] = useState(false);
@@ -229,6 +235,30 @@ export default function PurchaseList() {
     } else {
       if (returnsPage !== 1) setReturnsPage(1);
       else runReturnsQuery(1, returnsLimit);
+    }
+  };
+
+  const searchPurchasesForReturn = async (e) => {
+    e?.preventDefault();
+    const term = returnPurchaseSearch.trim();
+    if (!term) {
+      setReturnPurchaseResults([]);
+      setReturnPurchaseSearchDone(false);
+      return;
+    }
+
+    setReturnPurchaseSearchLoading(true);
+    setReturnPurchaseSearchDone(true);
+    try {
+      const res = await axios.get(LIST_API, {
+        params: { billOrProduct: term, page: 1, limit: 25 },
+      });
+      setReturnPurchaseResults(Array.isArray(res.data?.data) ? res.data.data : []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to search purchase bills");
+      setReturnPurchaseResults([]);
+    } finally {
+      setReturnPurchaseSearchLoading(false);
     }
   };
 
@@ -452,6 +482,9 @@ export default function PurchaseList() {
       // Refresh lists
       runListQuery(page, limit);
       runReturnsQuery(1, returnsLimit);
+      if (returnPurchaseSearch.trim()) {
+        searchPurchasesForReturn();
+      }
       setActiveTab("returns");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to process purchase return");
@@ -572,9 +605,9 @@ export default function PurchaseList() {
   );
 
   return (
-    <>
+    <div className="purchase-list-page">
       {/* Top Header & Navigation Tabs */}
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-3">
+      <div className="purchase-list-header d-flex flex-wrap justify-content-between align-items-center mb-3">
         <Nav tabs className="border-bottom-0">
           <NavItem>
             <NavLink
@@ -602,14 +635,18 @@ export default function PurchaseList() {
         </Nav>
 
         {activeTab === "purchases" && (
-          <Button color="primary" onClick={() => navigate("/index/purchaseForm")}>
-            <FaPlus className="me-1" /> Create Purchase
+          <Button
+            color="primary"
+            className="purchase-list-create-button"
+            onClick={() => navigate("/index/purchaseForm")}
+          >
+            <FaPlus /> <span>Create Purchase</span>
           </Button>
         )}
       </div>
 
       {/* FILTERS */}
-      <Row className="mb-3 g-2">
+      <Row className="purchase-list-filters mb-3 g-2">
         <Col xs={6} md={2}>
           <Label className="small text-muted fw-bold">From Date</Label>
           <Input
@@ -645,14 +682,14 @@ export default function PurchaseList() {
           </Col>
         )}
         <Col xs={6} md={2} className="d-flex align-items-end">
-          <Button color="primary" onClick={handleSearch} className="w-100">
-            <FaSearch className="me-1" /> Search
+          <Button color="primary" onClick={handleSearch} className="w-100 purchase-list-filter-button">
+            <FaSearch /> <span>Search</span>
           </Button>
         </Col>
         {activeTab === "purchases" && (
           <Col xs={6} md={2} className="d-flex align-items-end">
-            <Button color="success" onClick={downloadCSV} className="w-100">
-              <FaFileCsv className="me-1" /> CSV
+            <Button color="success" onClick={downloadCSV} className="w-100 purchase-list-filter-button">
+              <FaFileCsv /> <span>CSV</span>
             </Button>
           </Col>
         )}
@@ -661,8 +698,8 @@ export default function PurchaseList() {
       {/* ================= TAB 1: PURCHASES LIST ================= */}
       {activeTab === "purchases" && (
         <>
-          <div className="table-responsive">
-            <Table bordered hover striped size="sm" className="text-center align-middle text-nowrap">
+          <div className="table-responsive purchase-list-table-wrap">
+            <Table bordered hover striped size="sm" className="text-center align-middle text-nowrap purchase-list-table">
               <thead className="table-dark">
                 <tr>
                   <th>S.No</th>
@@ -678,7 +715,7 @@ export default function PurchaseList() {
                   <th>Due</th>
                   <th>Payment</th>
                   <th>Status</th>
-                  <th style={{ minWidth: "180px" }}>Actions</th>
+                  <th className="purchase-list-actions-heading">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -840,7 +877,7 @@ export default function PurchaseList() {
                           )}
                         </td>
                         <td>
-                          <div className="d-flex justify-content-center gap-1">
+                          <div className="purchase-list-actions d-flex justify-content-center">
                             {/* PO Invoice Print */}
                             <Button
                               size="sm"
@@ -943,6 +980,91 @@ export default function PurchaseList() {
       {/* ================= TAB 2: PURCHASE RETURNS LIST ================= */}
       {activeTab === "returns" && (
         <>
+          <Card className="mb-3 border shadow-sm">
+            <CardBody>
+              <h5 className="fw-bold mb-1">Start a Purchase Return</h5>
+              <p className="text-muted small mb-3">
+                Search using a bill number or product name, then choose the bill to return items from.
+              </p>
+              <Form onSubmit={searchPurchasesForReturn}>
+                <Row className="g-2 align-items-end">
+                  <Col xs={12} md={9}>
+                    <Label htmlFor="return-purchase-search" className="small text-muted fw-bold">
+                      Bill Number or Product
+                    </Label>
+                    <Input
+                      id="return-purchase-search"
+                      value={returnPurchaseSearch}
+                      onChange={(e) => setReturnPurchaseSearch(e.target.value)}
+                      placeholder="Enter bill number or product name"
+                    />
+                  </Col>
+                  <Col xs={12} md={3}>
+                    <Button type="submit" color="primary" className="w-100 purchase-list-filter-button">
+                      <FaSearch /> <span>Search Bills</span>
+                    </Button>
+                  </Col>
+                </Row>
+              </Form>
+
+              {returnPurchaseSearchLoading ? (
+                <div className="text-center text-muted py-3">
+                  <Spinner size="sm" color="primary" /> Searching purchase bills...
+                </div>
+              ) : returnPurchaseSearchDone ? (
+                <div className="table-responsive purchase-return-search-results mt-3">
+                  <Table bordered hover size="sm" className="align-middle text-nowrap mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Bill Number</th>
+                        <th>Date</th>
+                        <th>Vendor</th>
+                        <th>Products</th>
+                        <th className="text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {returnPurchaseResults.length ? returnPurchaseResults.map((purchase) => {
+                        const purchaseItems = Array.isArray(purchase.items) ? purchase.items : [];
+                        const hasReturnableItems = purchaseItems.some(
+                          (item) => Number(item.qty || 0) - Number(item.pr_qty || item.return_qty || 0) > 0.0001,
+                        );
+                        return (
+                          <tr key={purchase.purchase_id}>
+                            <td className="fw-bold text-primary">{cleanDocNo(purchase.purchase_no) || "—"}</td>
+                            <td>{formatPurchaseDate(purchase.purchase_date)}</td>
+                            <td>{purchase.company_name || purchase.vendor_name || "—"}</td>
+                            <td className="text-start">
+                              {purchaseItems.map((item) => item.product_name).filter(Boolean).join(", ") || "—"}
+                            </td>
+                            <td className="text-center">
+                              <Button
+                                type="button"
+                                size="sm"
+                                color="warning"
+                                disabled={!hasReturnableItems}
+                                onClick={() => openReturnModal(purchase.purchase_id)}
+                              >
+                                <FaUndo className="me-1" />
+                                {hasReturnableItems ? "Process Return" : "Fully Returned"}
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      }) : (
+                        <tr>
+                          <td colSpan="5" className="text-center text-muted py-3">
+                            No matching purchase bills found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </Table>
+                </div>
+              ) : null}
+            </CardBody>
+          </Card>
+
           {/* Summary Cards */}
           <Row className="mb-3 g-3">
             <Col md={4}>
@@ -973,8 +1095,8 @@ export default function PurchaseList() {
             </Col>
           </Row>
 
-          <div className="table-responsive">
-            <Table bordered hover striped size="sm" className="text-center align-middle text-nowrap">
+          <div className="table-responsive purchase-returns-table-wrap">
+            <Table bordered hover striped size="sm" className="text-center align-middle text-nowrap purchase-returns-table">
               <thead className="table-dark">
                 <tr>
                   <th>S.No</th>
@@ -1042,7 +1164,7 @@ export default function PurchaseList() {
                         )}
                       </td>
                       <td>
-                        <div className="d-flex justify-content-center gap-1">
+                        <div className="purchase-list-actions d-flex justify-content-center">
                           <Button
                             size="sm"
                             color="info"
@@ -1810,6 +1932,6 @@ export default function PurchaseList() {
           </Button>
         </ModalFooter>
       </Modal>
-    </>
+    </div>
   );
 }

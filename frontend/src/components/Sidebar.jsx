@@ -7,7 +7,8 @@ import {
   FaChevronDown, FaChevronRight, FaWarehouse, FaShoppingCart,
   FaMinusCircle, FaTruck, FaStore, FaMapMarkerAlt, FaDollarSign,
   FaPercent, FaLayerGroup, FaCodeBranch, FaUserShield, FaTools, FaWallet,
-  FaMoon, FaMoneyCheckAlt, FaUndo, FaHandshake, FaUserTie
+  FaMoon, FaMoneyCheckAlt, FaUndo, FaHandshake
+  , FaUserTie
 } from "react-icons/fa";
 import "../style/Sidebar.css";
 
@@ -18,7 +19,6 @@ const SidebarContent = ({ close, collapsed = false }) => {
 
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const permissions = storedUser.permissions || [];
-<<<<<<< HEAD
   const roleLower = String(storedUser.role_name || "").toLowerCase().trim();
   const isSuperAdmin = roleLower === "super admin" || storedUser.role_id === 5;
   const isAdmin = !isSuperAdmin && (roleLower.includes("admin") || storedUser.role_id === 1 || storedUser.id === 1);
@@ -39,29 +39,12 @@ const SidebarContent = ({ close, collapsed = false }) => {
     if (isNonUser && key.startsWith("expenses.")) return true;
     return permissions.includes(key);
   };
-=======
-  const isSuperAdmin = storedUser.role_name?.toLowerCase() === "super admin";
-  const isNonUser = storedUser.role_name?.toLowerCase().includes("non user") || storedUser.role_id === 6;
-  const isCashier = storedUser.role_name?.toLowerCase().includes("cashier") || storedUser.role_id === 8;
-  const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
-  const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || storedUser.id === 1;
-  const hasPermission = (key) => isSuperAdmin || permissions.includes(key) || (isNonUser && key.startsWith("expenses."));
->>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
 
-  const currentPath = location.pathname.toLowerCase();
-  const segments = currentPath.split("/").filter(Boolean);
-  const hasSegment = (path) => segments.includes(String(path).toLowerCase());
-  const isActive = (path) => {
-    if (!path) return false;
-    const p = path.toLowerCase().replace(/^\//, "");
-    if (segments.includes(p)) return true;
-    if (currentPath.includes(p)) return true;
-    return false;
-  };
+  const segments = location.pathname.toLowerCase().split("/").filter(Boolean);
+  const hasSegment = (path) => segments.includes(path.toLowerCase());
+  const isActive = hasSegment;
   const isCategoryActive =
     hasSegment("categorylist") || hasSegment("subcategorylist");
-  const isPurchaseActive =
-    hasSegment("purchase") || hasSegment("purchaseform") || hasSegment("purchaselist");
   const isQuotationsActive =
     hasSegment("quotations") ||
     hasSegment("quotationsform") ||
@@ -102,9 +85,10 @@ const SidebarContent = ({ close, collapsed = false }) => {
     if (isCategoryActive) setOpenMenu("category");
     else if (isQuotationsActive) setOpenMenu("quotations");
     else if (isStockActive) setOpenMenu("stock");
-    else if (isPurchaseActive) setOpenMenu("purchase");
+    else if (isActive("purchase")) setOpenMenu("purchase");
     else if (isSalesActive) setOpenMenu("sales");
     else if (isReportsActive) setOpenMenu("reports");
+    else if (isActive("vendor")) setOpenMenu("vendor");
     else if (isBusinessLocationActive) setOpenMenu("businesslocation");
     else if (isExpensesActive) setOpenMenu("expenses");
     else setOpenMenu(null);
@@ -123,7 +107,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
           {/* 1. POS / New Bill */}
           <NavItem
             className={`menu-item ${isActive("salesform") ? "active" : ""}`}
-            onClick={() => { navigate("/index/salesForm"); close && close(); }}
+            onClick={() => { navigate("salesForm"); close && close(); }}
           >
             <FaPlusCircle className="menu-icon" />
             {!collapsed && <span className="menu-text">POS / New Bill</span>}
@@ -132,7 +116,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
           {/* 2. Invoices / Bills List */}
           <NavItem
             className={`menu-item ${isActive("saleslist") ? "active" : ""}`}
-            onClick={() => { navigate("/index/salesList"); close && close(); }}
+            onClick={() => { navigate("salesList"); close && close(); }}
           >
             <FaListAlt className="menu-icon" />
             {!collapsed && <span className="menu-text">Invoices & Bills</span>}
@@ -141,7 +125,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
           {/* 3. Customer */}
           <NavItem
             className={`menu-item ${isActive("customer") ? "active" : ""}`}
-            onClick={() => { navigate("/index/customer"); close && close(); }}
+            onClick={() => { navigate("customer"); close && close(); }}
           >
             <FaUsers className="menu-icon" />
             {!collapsed && <span className="menu-text">Customers</span>}
@@ -150,7 +134,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
           {/* 4. Products / Stock Availability */}
           <NavItem
             className={`menu-item ${isActive("product") || isActive("stock-details") ? "active" : ""}`}
-            onClick={() => { navigate("/index/stock-details"); close && close(); }}
+            onClick={() => { navigate("stock-details"); close && close(); }}
           >
             <FaBoxOpen className="menu-icon" />
             {!collapsed && <span className="menu-text">Stock Availability</span>}
@@ -159,7 +143,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
           {/* 5. Day Closing / Cash Register */}
           <NavItem
             className={`menu-item ${isActive("day-closing") ? "active" : ""}`}
-            onClick={() => { navigate("/index/day-closing"); close && close(); }}
+            onClick={() => { navigate("day-closing"); close && close(); }}
           >
             <FaMoneyCheckAlt className="menu-icon" />
             {!collapsed && <span className="menu-text">Day Closing Register</span>}
@@ -168,7 +152,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
           {/* 6. Daily Cash Report */}
           <NavItem
             className={`menu-item ${isActive("daily-cash-report") ? "active" : ""}`}
-            onClick={() => { navigate("/index/daily-cash-report"); close && close(); }}
+            onClick={() => { navigate("daily-cash-report"); close && close(); }}
           >
             <FaChartBar className="menu-icon" />
             {!collapsed && <span className="menu-text">Daily Cash Report</span>}
@@ -209,35 +193,33 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </NavItem>
         )}
 
-        {/* CRM Portal (Hidden for Cashier) */}
-        {!isCashier && (
-          <NavItem
-            className={`menu-item ${location.pathname.startsWith("/crm") ? "active" : ""}`}
-            onClick={() => {
-              navigate(isAdmin ? "/crm" : "/crm/leads");
-              close && close();
-            }}
-            title={collapsed ? "CRM Portal" : undefined}
-          >
-            <FaHandshake className="menu-icon" style={{ color: "#60a5fa" }} />
-            {!collapsed && <span className="menu-text">CRM</span>}
-            {!collapsed && (
-              <span
-                className="badge ms-auto"
-                style={{
-                  fontSize: "10px",
-                  background: "linear-gradient(135deg, #2563eb, #7c3aed)",
-                  color: "#ffffff",
-                  padding: "2px 7px",
-                  borderRadius: "10px",
-                  fontWeight: "700"
-                }}
-              >
-                Portal
-              </span>
-            )}
-          </NavItem>
-        )}
+        {/* CRM Portal */}
+        <NavItem
+          className={`menu-item ${location.pathname.startsWith("/crm") ? "active" : ""}`}
+          onClick={() => {
+            navigate("/crm");
+            close && close();
+          }}
+          title={collapsed ? "CRM Portal" : undefined}
+        >
+          <FaHandshake className="menu-icon" style={{ color: "#60a5fa" }} />
+          {!collapsed && <span className="menu-text">CRM</span>}
+          {!collapsed && (
+            <span
+              className="badge ms-auto"
+              style={{
+                fontSize: "10px",
+                background: "linear-gradient(135deg, #2563eb, #7c3aed)",
+                color: "#ffffff",
+                padding: "2px 7px",
+                borderRadius: "10px",
+                fontWeight: "700"
+              }}
+            >
+              Portal
+            </span>
+          )}
+        </NavItem>
 
         {/* 2. Category (GST only) */}
         {!isNonUser && hasPermission("category.view") && (
@@ -250,14 +232,14 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </NavItem>
         {!collapsed && openMenu === "category" && (
           <div className="submenu">
-            <div className={`submenu-item ${isActive("categoryList") ? "active" : ""}`}
-              onClick={() => { navigate("/index/categoryList"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>Category List</span>
-            </div>
-            <div className={`submenu-item ${isActive("subcategoryList") ? "active" : ""}`}
-              onClick={() => { navigate("/index/subcategoryList"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>Subcategory List</span>
-            </div>
+            <NavItem className={`submenu-item ${isActive("categoryList") ? "active" : ""}`}
+              onClick={() => { navigate("categoryList"); close && close(); }}>
+              <FaListAlt /> <span>Category List</span>
+            </NavItem>
+            <NavItem className={`submenu-item ${isActive("subcategoryList") ? "active" : ""}`}
+              onClick={() => { navigate("subcategoryList"); close && close(); }}>
+              <FaListAlt /> <span>Subcategory List</span>
+            </NavItem>
           </div>
         )}
         </>
@@ -266,7 +248,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
         {/* 3. Product (GST only) */}
         {!isNonUser && hasPermission("products.view") && (
         <NavItem className={`menu-item ${isActive("product") ? "active" : ""}`}
-          onClick={() => { navigate("/index/product"); close && close(); }}>
+          onClick={() => { navigate("product"); close && close(); }}>
           <FaBoxOpen className="menu-icon" />
           {!collapsed && <span className="menu-text">Product</span>}
         </NavItem>
@@ -275,7 +257,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
         {/* 4. Vendor (GST only) */}
         {!isNonUser && hasPermission("vendors.view") && (
         <NavItem className={`menu-item ${isActive("vendor") ? "active" : ""}`}
-          onClick={() => { navigate("/index/vendor"); close && close(); }}>
+          onClick={() => { navigate("vendor"); close && close(); }}>
           <FaStore className="menu-icon" />
           {!collapsed && <span className="menu-text">Vendor</span>}
         </NavItem>
@@ -284,7 +266,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
         {/* 5. Purchase (GST only) */}
         {!isNonUser && hasPermission("purchases.view") && (
         <>
-        <NavItem className={`menu-item ${isPurchaseActive ? "active" : ""}`}
+        <NavItem className={`menu-item ${isActive("purchase") ? "active" : ""}`}
           onClick={() => toggleMenu("purchase")}>
           <FaShoppingCart className="menu-icon" />
           {!collapsed && <span className="menu-text">Purchase</span>}
@@ -292,18 +274,18 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </NavItem>
         {!collapsed && openMenu === "purchase" && (
           <div className="submenu">
-            <div className={`submenu-item ${isActive("purchaseForm") ? "active" : ""}`}
-              onClick={() => { navigate("/index/purchaseForm"); close && close(); }}>
-              <FaPlusCircle className="submenu-icon" /> <span>Add Purchase</span>
-            </div>
-            <div className={`submenu-item ${isActive("purchaseList") ? "active" : ""}`}
-              onClick={() => { navigate("/index/purchaseList"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>Purchase List</span>
-            </div>
-            <div className="submenu-item"
-              onClick={() => { navigate("/index/purchaseList?tab=returns"); close && close(); }}>
-              <FaUndo className="submenu-icon" /> <span>Purchase Returns</span>
-            </div>
+            <NavItem className={`submenu-item ${isActive("purchaseForm") ? "active" : ""}`}
+              onClick={() => { navigate("purchaseForm"); close && close(); }}>
+              <FaPlusCircle /> <span>Add Purchase</span>
+            </NavItem>
+            <NavItem className={`submenu-item ${isActive("purchaseList") ? "active" : ""}`}
+              onClick={() => { navigate("purchaseList"); close && close(); }}>
+              <FaListAlt /> <span>Purchase List</span>
+            </NavItem>
+            <NavItem className="submenu-item"
+              onClick={() => { navigate("purchaseList?tab=returns"); close && close(); }}>
+              <FaUndo /> <span>Purchase Returns</span>
+            </NavItem>
           </div>
         )}
         </>
@@ -312,7 +294,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
         {/* 6. Customer */}
         {hasPermission("customers.view") && (
         <NavItem className={`menu-item ${isActive("customer") ? "active" : ""}`}
-          onClick={() => { navigate("/index/customer"); close && close(); }}>
+          onClick={() => { navigate("customer"); close && close(); }}>
           <FaUsers className="menu-icon" />
           {!collapsed && <span className="menu-text">Customer</span>}
         </NavItem>
@@ -329,17 +311,16 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </NavItem>
         {!collapsed && openMenu === "sales" && (
           <div className="submenu">
-            <div className={`submenu-item ${isActive("salesForm") ? "active" : ""}`}
-              onClick={() => { navigate("/index/salesForm"); close && close(); }}>
-              <FaPlusCircle className="submenu-icon" /> <span>Add Sale / POS</span>
-            </div>
-            <div className={`submenu-item ${isActive("salesList") ? "active" : ""}`}
-              onClick={() => { navigate("/index/salesList"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>Sales List</span>
-            </div>
+            <NavItem className={`submenu-item ${isActive("salesForm") ? "active" : ""}`}
+              onClick={() => { navigate("salesForm"); close && close(); }}>
+              <FaPlusCircle /> <span>Add Sale</span>
+            </NavItem>
+            <NavItem className={`submenu-item ${isActive("salesList") ? "active" : ""}`}
+              onClick={() => { navigate("salesList"); close && close(); }}>
+              <FaListAlt /> <span>Sales List</span>
+            </NavItem>
             {!isCashier && (
               <>
-<<<<<<< HEAD
                 <NavItem className={`submenu-item ${isActive("sales-persons") ? "active" : ""}`}
                   onClick={() => { navigate("sales-persons"); close && close(); }}>
                   <FaUsers /> <span>Sales Persons</span>
@@ -350,16 +331,6 @@ const SidebarContent = ({ close, collapsed = false }) => {
                     <FaChartBar /> <span>Sales Person Report</span>
                   </NavItem>
                 )}
-=======
-                <div className={`submenu-item ${isActive("sales-persons") ? "active" : ""}`}
-                  onClick={() => { navigate("/index/sales-persons"); close && close(); }}>
-                  <FaUsers className="submenu-icon" /> <span>Sales Persons</span>
-                </div>
-                <div className={`submenu-item ${isActive("sales-person-report") ? "active" : ""}`}
-                  onClick={() => { navigate("/index/sales-person-report"); close && close(); }}>
-                  <FaChartBar className="submenu-icon" /> <span>Sales Person Report</span>
-                </div>
->>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
               </>
             )}
           </div>
@@ -380,20 +351,20 @@ const SidebarContent = ({ close, collapsed = false }) => {
           <div className="submenu">
             {!isCashier && (
               <>
-                <div className={`submenu-item ${isActive("StockInList") ? "active" : ""}`}
-                  onClick={() => { navigate("/index/StockInList"); close && close(); }}>
-                  <FaPlusCircle className="submenu-icon" /> <span>Stock In</span>
-                </div>
-                <div className={`submenu-item ${isActive("stockout") ? "active" : ""}`}
-                  onClick={() => { navigate("/index/stockout"); close && close(); }}>
-                  <FaMinusCircle className="submenu-icon" /> <span>Stock Out</span>
-                </div>
+                <NavItem className={`submenu-item ${isActive("StockInList") ? "active" : ""}`}
+                  onClick={() => { navigate("StockInList"); close && close(); }}>
+                  <FaPlusCircle /> <span>Stock In</span>
+                </NavItem>
+                <NavItem className={`submenu-item ${isActive("stockout") ? "active" : ""}`}
+                  onClick={() => { navigate("stockout"); close && close(); }}>
+                  <FaMinusCircle /> <span>Stock Out</span>
+                </NavItem>
               </>
             )}
-            <div className={`submenu-item ${isActive("stock-details") ? "active" : ""}`}
-              onClick={() => { navigate("/index/stock-details"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>Stock List</span>
-            </div>
+            <NavItem className={`submenu-item ${isActive("stock-details") ? "active" : ""}`}
+              onClick={() => { navigate("stock-details"); close && close(); }}>
+              <FaListAlt /> <span>Stock List</span>
+            </NavItem>
           </div>
         )}
         </>
@@ -410,18 +381,18 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </NavItem>
         {!collapsed && openMenu === "expenses" && (
           <div className="submenu">
-            <div className={`submenu-item ${isActive("expenses/categories") ? "active" : ""}`}
-              onClick={() => { navigate("/index/expenses/categories"); close && close(); }}>
-              <FaLayerGroup className="submenu-icon" /> <span>Add Categories</span>
-            </div>
-            <div className={`submenu-item ${isActive("expenses/add") ? "active" : ""}`}
-              onClick={() => { navigate("/index/expenses/add"); close && close(); }}>
-              <FaPlusCircle className="submenu-icon" /> <span>{isNonUser ? "Add Non-GST Expense" : "Add Expenses"}</span>
-            </div>
-            <div className={`submenu-item ${isActive("expenses/list") ? "active" : ""}`}
-              onClick={() => { navigate("/index/expenses/list"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>{isNonUser ? "Non-GST Expenses List" : "Expenses List"}</span>
-            </div>
+             <NavItem className={`submenu-item ${isActive("expenses/categories") ? "active" : ""}`}
+              onClick={() => { navigate("expenses/categories"); close && close(); }}>
+              <FaLayerGroup /> <span>Add Categories</span>
+            </NavItem>
+             <NavItem className={`submenu-item ${isActive("expenses/add") ? "active" : ""}`}
+              onClick={() => { navigate("expenses/add"); close && close(); }}>
+              <FaPlusCircle /> <span>{isNonUser ? "Add Non-GST Expense" : "Add Expenses"}</span>
+            </NavItem>
+            <NavItem className={`submenu-item ${isActive("expenses/list") ? "active" : ""}`}
+              onClick={() => { navigate("expenses/list"); close && close(); }}>
+              <FaListAlt /> <span>{isNonUser ? "Non-GST Expenses List" : "Expenses List"}</span>
+            </NavItem>
           </div>
         )}
         </>
@@ -430,7 +401,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
         {/* 10. Opening Balance */}
         {hasPermission("day_closing.view") && (
         <NavItem className={`menu-item ${isActive("day-closing") ? "active" : ""}`}
-          onClick={() => { navigate("/index/day-closing"); close && close(); }}>
+          onClick={() => { navigate("day-closing"); close && close(); }}>
           <FaMoneyCheckAlt className="menu-icon" />
           {!collapsed && <span className="menu-text">Opening Balance</span>}
         </NavItem>
@@ -439,7 +410,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
         {/* 11. Ledger */}
         {hasPermission("ledger.view") && (
         <NavItem className={`menu-item ${isActive("ledger") ? "active" : ""}`}
-          onClick={() => { navigate("/index/ledger"); close && close(); }}>
+          onClick={() => { navigate("ledger"); close && close(); }}>
           <FaFileInvoice className="menu-icon" />
           {!collapsed && <span className="menu-text">Ledger</span>}
         </NavItem>
@@ -448,7 +419,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
         {/* 12. Bank Accounts */}
         {hasPermission("bank_accounts.view") && (
         <NavItem className={`menu-item ${isActive("bank-accounts") ? "active" : ""}`}
-          onClick={() => { navigate("/index/bank-accounts"); close && close(); }}>
+          onClick={() => { navigate("bank-accounts"); close && close(); }}>
           <FaWallet className="menu-icon" />
           {!collapsed && <span className="menu-text">Bank Accounts</span>}
         </NavItem>
@@ -465,40 +436,40 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </NavItem>
         {!collapsed && openMenu === "reports" && (
           <div className="submenu">
-            <div className={`submenu-item ${isActive("dailySalesReport") ? "active" : ""}`}
-              onClick={() => { navigate("/index/dailySalesReport"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>Daily Sales Report</span>
-            </div>
+            <NavItem className={`submenu-item ${isActive("dailySalesReport") ? "active" : ""}`}
+              onClick={() => { navigate("dailySalesReport"); close && close(); }}>
+              <FaListAlt /> <span>Daily Sales Report</span>
+            </NavItem>
 
             {!isCashier && (
-              <div className={`submenu-item ${isActive("salesReport") ? "active" : ""}`}
-                onClick={() => { navigate("/index/salesReport"); close && close(); }}>
-                <FaListAlt className="submenu-icon" /> <span>Sale Report</span>
-              </div>
+              <NavItem className={`submenu-item ${isActive("salesReport") ? "active" : ""}`}
+                onClick={() => { navigate("salesReport"); close && close(); }}>
+                <FaListAlt /> <span>Sale Report</span>
+              </NavItem>
             )}
 
             {!isNonUser && !isCashier && (
-            <div className={`submenu-item ${isActive("gstReport") ? "active" : ""}`}
-              onClick={() => { navigate("/index/gstReport"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>GST Report</span>
-            </div>
+            <NavItem className={`submenu-item ${isActive("gstReport") ? "active" : ""}`}
+              onClick={() => { navigate("gstReport"); close && close(); }}>
+              <FaListAlt /> <span>GST Report</span>
+            </NavItem>
             )}
             {!isNonUser && !isCashier && (
-            <div className={`submenu-item ${isActive("purchaseReport") ? "active" : ""}`}
-              onClick={() => { navigate("/index/purchaseReport"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>Purchase Report</span>
-            </div>
+            <NavItem className={`submenu-item ${isActive("purchaseReport") ? "active" : ""}`}
+              onClick={() => { navigate("purchaseReport"); close && close(); }}>
+              <FaListAlt /> <span>Purchase Report</span>
+            </NavItem>
             )}
             {!isNonUser && !isCashier && (
-            <div className={`submenu-item ${isActive("stockReport") ? "active" : ""}`}
-              onClick={() => { navigate("/index/stockReport"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>Stock Report</span>
-            </div>
+            <NavItem className={`submenu-item ${isActive("stockReport") ? "active" : ""}`}
+              onClick={() => { navigate("stockReport"); close && close(); }}>
+              <FaListAlt /> <span>Stock Report</span>
+            </NavItem>
             )}
-            <div className={`submenu-item ${isActive("daily-cash-report") ? "active" : ""}`}
-              onClick={() => { navigate("/index/daily-cash-report"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>Daily Cash Report</span>
-            </div>
+            <NavItem className={`submenu-item ${isActive("daily-cash-report") ? "active" : ""}`}
+              onClick={() => { navigate("daily-cash-report"); close && close(); }}>
+              <FaListAlt /> <span>Daily Cash Report</span>
+            </NavItem>
           </div>
         )}
         </>
@@ -507,7 +478,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
         {/* Tax Modules (GST only) */}
         {!isNonUser && !isCashier && hasPermission("tax_modules.view") && (
         <NavItem className={`menu-item ${isActive("taxModulesList") ? "active" : ""}`}
-          onClick={() => { navigate("/index/taxModulesList"); close && close(); }}>
+          onClick={() => { navigate("taxModulesList"); close && close(); }}>
           <FaPercent className="menu-icon" />
           {!collapsed && <span className="menu-text">Tax Modules List</span>}
         </NavItem>
@@ -516,7 +487,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
         {/* Tax Groups (GST only) */}
         {!isNonUser && !isCashier && hasPermission("tax_groups.view") && (
         <NavItem className={`menu-item ${isActive("taxGroupsList") ? "active" : ""}`}
-          onClick={() => { navigate("/index/taxGroupsList"); close && close(); }}>
+          onClick={() => { navigate("taxGroupsList"); close && close(); }}>
           <FaLayerGroup className="menu-icon" />
           {!collapsed && <span className="menu-text">Tax Groups List</span>}
         </NavItem>
@@ -533,10 +504,10 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </NavItem>
         {!collapsed && openMenu === "quotations" && (
           <div className="submenu">
-            <div className={`submenu-item ${isActive("quotationsList") ? "active" : ""}`}
-              onClick={() => { navigate("/index/quotationsList"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>Quotations List</span>
-            </div>
+            <NavItem className={`submenu-item ${isActive("quotationsList") ? "active" : ""}`}
+              onClick={() => { navigate("quotationsList"); close && close(); }}>
+              <FaListAlt /> <span>Quotations List</span>
+            </NavItem>
           </div>
         )}
         </>
@@ -553,10 +524,10 @@ const SidebarContent = ({ close, collapsed = false }) => {
         </NavItem>
         {!collapsed && openMenu === "businesslocation" && (
           <div className="submenu">
-            <div className={`submenu-item ${isActive("businessLocation") ? "active" : ""}`}
-              onClick={() => { navigate("/index/businessLocation"); close && close(); }}>
-              <FaListAlt className="submenu-icon" /> <span>Location List</span>
-            </div>
+            <NavItem className={`submenu-item ${isActive("businessLocation") ? "active" : ""}`}
+              onClick={() => { navigate("businessLocation"); close && close(); }}>
+              <FaListAlt /> <span>Location List</span>
+            </NavItem>
           </div>
         )}
         </>
@@ -565,7 +536,7 @@ const SidebarContent = ({ close, collapsed = false }) => {
         {/* Branch Management (Super Admin only) */}
         {!isNonUser && !isCashier && isSuperAdmin && hasPermission("branches.view") && (
         <NavItem className={`menu-item ${isActive("branches") ? "active" : ""}`}
-          onClick={() => { navigate("/index/branches"); close && close(); }}>
+          onClick={() => { navigate("branches"); close && close(); }}>
           <FaCodeBranch className="menu-icon" />
           {!collapsed && <span className="menu-text">Branches</span>}
         </NavItem>

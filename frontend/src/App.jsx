@@ -66,7 +66,14 @@ import CrmLeadReports from "./components/crm/CrmLeadReports";
 import CrmFollowupReports from "./components/crm/CrmFollowupReports";
 import CrmPerformanceReport from "./components/crm/CrmPerformanceReport";
 import HrmsDashboard from "./components/HrmsDashboard";
+import SalesPersonHrms from "./components/SalesPersonHrms";
 
+const HrmsPortal = () => {
+  const user = getUser();
+  const roleName = String(user?.role_name || user?.role || "").toLowerCase();
+  const isSalesPerson = Number(user?.role_id) === 7 || roleName.includes("sales");
+  return isSalesPerson ? <SalesPersonHrms /> : <HrmsDashboard />;
+};
 
 const SuperAdminOnly = ({ children }) => {
   const user = getUser();
@@ -123,8 +130,8 @@ function App() {
           <Route path="performance" element={<CrmPerformanceReport />} />
         </Route>
         {/* Dedicated Standalone HRMS Panel (Separate URL outside Billing layout) */}
-        <Route path="/hrms" element={<HrmsDashboard />} />
-        <Route path="/hrms/:tab" element={<HrmsDashboard />} />
+        <Route path="/hrms" element={<HrmsPortal />} />
+        <Route path="/hrms/:tab" element={<HrmsPortal />} />
 
         {/* Layout Route */}
         <Route path="/index" element={<Index />}>

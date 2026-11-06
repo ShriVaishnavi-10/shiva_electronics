@@ -325,7 +325,7 @@ exports.getPurchasesList = (req, res) => {
   db.query("UPDATE purchases SET purchase_no = REPLACE(purchase_no, 'SSL', 'CTW') WHERE purchase_no LIKE '%SSL%'", () => {});
   db.query("UPDATE branch_sequences SET prefix = REPLACE(prefix, 'SSL', 'CTW') WHERE prefix LIKE '%SSL%'", () => {});
 
-  const { fromDate, toDate, vendor, product, search, page = 1, limit = 25 } = req.query;
+  const { fromDate, toDate, vendor, product, search, billOrProduct, page = 1, limit = 25 } = req.query;
   const exportFlag = req.query.export;
   const forExport =
     exportFlag === "1" ||
@@ -364,6 +364,11 @@ exports.getPurchasesList = (req, res) => {
   if (product && product.trim()) {
     where.push("pr.product_name LIKE ?");
     params.push(`%${product.trim()}%`);
+  }
+  if (billOrProduct && String(billOrProduct).trim()) {
+    const term = `%${String(billOrProduct).trim()}%`;
+    where.push("(p.purchase_no LIKE ? OR pr.product_name LIKE ?)");
+    params.push(term, term);
   }
 
   const whereClause = where.join(" AND ");

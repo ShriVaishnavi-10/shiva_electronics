@@ -1,0 +1,913 @@
+.sales-hrms-layout {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #f4f6fb;
+  color: #0f172a;
+  font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.sales-hrms-sidebar {
+  display: flex;
+  flex: 0 0 260px;
+  flex-direction: column;
+  width: 260px;
+  overflow: hidden;
+  color: #e2e8f0;
+  background: linear-gradient(180deg, #0e121e 0%, #060810 100%);
+  border-right: 1.5px solid rgba(255, 215, 0, 0.22);
+  box-shadow: 6px 0 25px rgba(0, 0, 0, 0.24);
+  transition: width 0.25s ease, flex-basis 0.25s ease;
+}
+
+.sales-hrms-sidebar.collapsed {
+  flex-basis: 76px;
+  width: 76px;
+}
+
+.sales-hrms-brand {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.sales-hrms-brand > img {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  object-fit: contain;
+  padding: 2px;
+  border: 2px solid #ffd700;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.sales-hrms-brand > div {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sales-hrms-brand > div strong {
+  overflow: hidden;
+  color: #ffd700;
+  font-size: 13px;
+  letter-spacing: 0.45px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sales-hrms-brand > div span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.sales-hrms-collapse,
+.sales-hrms-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 215, 0, 0.28);
+  border-radius: 9px;
+  color: #ffd700;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sales-hrms-collapse {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+}
+
+.sales-hrms-section-label {
+  padding: 22px 18px 9px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.sales-hrms-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 12px;
+}
+
+.sales-hrms-nav-item {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 13px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: #cbd5e1;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.sales-hrms-nav-item svg {
+  flex: 0 0 auto;
+  color: #ffd700;
+}
+
+.sales-hrms-nav-item:hover {
+  border-color: rgba(255, 215, 0, 0.28);
+  color: #fff;
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.sales-hrms-nav-item.active {
+  border-color: #ffd700;
+  color: #08090d;
+  background: linear-gradient(135deg, #ffd700 0%, #d49a00 100%);
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.25);
+}
+
+.sales-hrms-nav-item.active svg {
+  color: #08090d;
+}
+
+.sales-hrms-nav-item > span:nth-child(2) {
+  flex: 1;
+}
+
+.sales-hrms-nav-badge {
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  color: #ffd700;
+  background: rgba(6, 8, 16, 0.65);
+  font-size: 13px;
+  text-align: center;
+}
+
+.sales-hrms-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-top: 1px solid rgba(255, 215, 0, 0.18);
+  background: #060810;
+}
+
+.sales-hrms-user-avatar {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  border-radius: 10px;
+  color: #08090d;
+  background: linear-gradient(135deg, #ffd700 0%, #d49a00 100%);
+  font-weight: 800;
+}
+
+.sales-hrms-user-name {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sales-hrms-user-name strong {
+  overflow: hidden;
+  color: #f8fafc;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sales-hrms-user-name span {
+  color: #ffd700;
+  font-size: 12px;
+}
+
+.sales-hrms-sidebar-logout {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 12px;
+  margin: 0 12px 14px;
+  padding: 10px 13px;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 11px;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.16);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.sales-hrms-sidebar-logout svg {
+  flex: 0 0 auto;
+}
+
+.sales-hrms-sidebar-logout:hover {
+  border-color: rgba(248, 113, 113, 0.6);
+  color: #fff;
+  background: rgba(185, 28, 28, 0.45);
+}
+
+.sales-hrms-sidebar.collapsed .sales-hrms-sidebar-logout {
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.sales-hrms-workspace {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sales-hrms-header {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 20px;
+  border-bottom: 1.5px solid rgba(255, 215, 0, 0.22);
+  color: #f8fafc;
+  background: linear-gradient(135deg, #0e121e 0%, #060810 100%);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.sales-hrms-header-brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.sales-hrms-header-brand > img {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  object-fit: contain;
+  padding: 2px;
+  border: 1.5px solid #ffd700;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.sales-hrms-header-title h1 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.sales-hrms-header-title > span {
+  display: block;
+  margin-top: 4px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.sales-hrms-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.sales-hrms-punch-status {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-right: 10px;
+  color: #94a3b8;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sales-hrms-punch-status strong {
+  color: #f8fafc;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 14px;
+}
+
+.sales-hrms-punch-status strong span {
+  padding: 0 3px;
+  color: #94a3b8;
+}
+
+.sales-hrms-clock {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  border-radius: 20px;
+  color: #f8fafc;
+  background: #060810;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sales-hrms-clock svg {
+  color: #ffd700;
+}
+
+.sales-hrms-punch-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border: 1px solid #047857;
+  border-radius: 9px;
+  color: #fff;
+  background: #047857;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sales-hrms-punch-button.checkout {
+  border-color: #d49a00;
+  color: #08090d;
+  background: linear-gradient(135deg, #ffd700 0%, #d49a00 100%);
+}
+
+.sales-hrms-punch-button:disabled {
+  border-color: #cbd5e1;
+  color: #64748b;
+  background: #e2e8f0;
+  cursor: not-allowed;
+}
+
+.sales-hrms-icon-button {
+  width: 36px;
+  height: 36px;
+  color: #ffd700;
+  border-color: rgba(255, 215, 0, 0.35);
+  background: rgba(255, 215, 0, 0.06);
+}
+
+.sales-hrms-icon-button:disabled {
+  cursor: wait;
+}
+
+.sales-hrms-content {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+  font-size: 16px;
+}
+
+.sales-hrms-content input,
+.sales-hrms-content select,
+.sales-hrms-content textarea {
+  font: inherit;
+}
+
+.sales-hrms-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 18px;
+}
+
+.sales-hrms-welcome {
+  position: relative;
+  display: flex;
+  min-height: 185px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  padding: 28px clamp(20px, 4vw, 38px);
+  border: 1px solid rgba(255, 215, 0, 0.32);
+  border-radius: 18px;
+  color: #f8fafc;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(255, 215, 0, 0.18), transparent 25%),
+    linear-gradient(120deg, #0e121e 0%, #111827 56%, #1f2937 100%);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.13);
+}
+
+.sales-hrms-welcome::after {
+  position: absolute;
+  right: 12%;
+  bottom: -100px;
+  width: 230px;
+  height: 230px;
+  border: 1px solid rgba(255, 215, 0, 0.12);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.sales-hrms-welcome-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.sales-hrms-welcome-eyebrow {
+  color: #facc15;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+.sales-hrms-welcome-copy h2 {
+  margin: 8px 0 5px;
+  color: #fff;
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 800;
+}
+
+.sales-hrms-welcome-copy p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 15px;
+}
+
+.sales-hrms-welcome-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.sales-hrms-welcome-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  border-radius: 20px;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+}
+
+.sales-hrms-welcome-status {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  border-radius: 20px;
+  color: #dcfce7;
+  background: rgba(20, 83, 45, 0.36);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sales-hrms-welcome-status > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+}
+
+.sales-hrms-welcome-status > span.offline {
+  background: #f87171;
+}
+
+.sales-hrms-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.sales-hrms-metric-grid > section {
+  position: relative;
+  overflow: hidden;
+}
+
+.sales-hrms-metric-grid > section::after {
+  position: absolute;
+  right: -24px;
+  bottom: -34px;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: rgba(212, 154, 0, 0.07);
+  content: "";
+  pointer-events: none;
+}
+
+.sales-hrms-metric-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sales-hrms-metric-label svg {
+  color: #b7791f;
+}
+
+.sales-hrms-metric-value {
+  display: block;
+  margin-top: 12px;
+  color: #0f172a;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.sales-hrms-metric-caption {
+  display: block;
+  margin-top: 7px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.sales-hrms-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 18px;
+}
+
+.sales-hrms-dashboard-record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f1f5f9;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.sales-hrms-dashboard-record strong {
+  color: #334155;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.sales-hrms-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.sales-hrms-card-heading h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.sales-hrms-text-link {
+  margin-top: 14px;
+  padding: 0;
+  border: 0;
+  color: #a16207;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sales-hrms-attendance-stat {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  padding: 13px 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  background: #f8fafc;
+}
+
+.sales-hrms-attendance-stat span {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.sales-hrms-attendance-stat strong {
+  color: #0f172a;
+  font-size: 19px;
+}
+
+.sales-hrms-attendance-panel {
+  padding: 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.sales-hrms-attendance-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.sales-hrms-attendance-toolbar .sales-hrms-card-heading {
+  margin-bottom: 0;
+}
+
+.sales-hrms-attendance-toolbar .sales-hrms-card-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.sales-hrms-attendance-toolbar .sales-hrms-card-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.sales-hrms-attendance-controls {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.sales-hrms-attendance-controls label {
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sales-hrms-attendance-controls input,
+.sales-hrms-attendance-controls button {
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  color: #0f172a;
+  background: #fff;
+  font: inherit;
+}
+
+.sales-hrms-attendance-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sales-hrms-attendance-controls button:disabled {
+  color: #64748b;
+  background: #f1f5f9;
+  cursor: wait;
+}
+
+.sales-hrms-attendance-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.sales-hrms-attendance-error {
+  margin-bottom: 16px;
+  padding: 11px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  color: #b91c1c;
+  background: #fef2f2;
+  font-size: 14px;
+}
+
+.sales-hrms-attendance-empty {
+  padding: 30px 12px !important;
+  color: #64748b;
+  text-align: center !important;
+}
+
+.sales-hrms-attendance-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sales-hrms-attendance-status.present {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.sales-hrms-attendance-status.late {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.sales-hrms-attendance-status.half-day {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.sales-hrms-attendance-status.absent {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.sales-hrms-attendance-status.on-leave {
+  color: #6b21a8;
+  background: #f3e8ff;
+}
+
+.sales-hrms-table-wrap {
+  overflow-x: auto;
+}
+
+.sales-hrms-table {
+  width: 100%;
+  min-width: 500px;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.sales-hrms-table th,
+.sales-hrms-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sales-hrms-table th {
+  color: #64748b;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.sales-hrms-leave-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sales-hrms-leave-status {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sales-hrms-leave-status.approved {
+  color: #15803d;
+}
+
+.sales-hrms-leave-status.rejected {
+  color: #b91c1c;
+}
+
+.sales-hrms-leave-status.pending {
+  color: #a16207;
+}
+
+.sales-hrms-spin {
+  animation: sales-hrms-spin 1s linear infinite;
+}
+
+@keyframes sales-hrms-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 760px) {
+  .sales-hrms-attendance-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sales-hrms-attendance-toolbar {
+    flex-direction: column;
+  }
+
+  .sales-hrms-attendance-controls {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .sales-hrms-attendance-controls input {
+    flex: 1;
+    min-width: 130px;
+  }
+
+  .sales-hrms-sidebar {
+    flex-basis: 76px;
+    width: 76px;
+  }
+
+  .sales-hrms-sidebar:not(.collapsed) {
+    flex-basis: 220px;
+    width: 220px;
+  }
+
+  .sales-hrms-sidebar.collapsed .sales-hrms-brand {
+    justify-content: center;
+    padding: 10px 6px;
+  }
+
+  .sales-hrms-sidebar.collapsed .sales-hrms-collapse {
+    display: none;
+  }
+
+  .sales-hrms-header {
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+
+  .sales-hrms-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .sales-hrms-punch-status {
+    display: none;
+  }
+
+  .sales-hrms-clock {
+    display: none;
+  }
+
+  .sales-hrms-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  .sales-hrms-attendance-panel {
+    padding: 16px;
+  }
+
+  .sales-hrms-attendance-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sales-hrms-attendance-controls label {
+    width: 100%;
+  }
+
+  .sales-hrms-header-title h1 {
+    font-size: 17px;
+  }
+
+  .sales-hrms-header-title > span {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sales-hrms-header-actions {
+    gap: 6px;
+  }
+
+  .sales-hrms-header-brand > img {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+
+  .sales-hrms-punch-button {
+    min-height: 34px;
+    padding: 7px 9px;
+    font-size: 11px;
+  }
+
+  .sales-hrms-icon-button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .sales-hrms-welcome {
+    min-height: unset;
+    align-items: flex-start;
+    flex-direction: column-reverse;
+    gap: 12px;
+  }
+}

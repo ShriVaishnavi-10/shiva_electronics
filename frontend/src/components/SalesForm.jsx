@@ -898,8 +898,6 @@ export default function SalesForm() {
   const [shippingAddress, setShippingAddress] = useState("");
   const [vehicleNo, setVehicleNo] = useState("");
   const [ewayInvoiceNo, setEwayInvoiceNo] = useState("");
-  const [poNo, setPoNo] = useState("");
-  const [poDate, setPoDate] = useState("");
   const [transportMode, setTransportMode] = useState("By Road");
   const [transportCharges, setTransportCharges] = useState("");
   const [additionalCharges, setAdditionalCharges] = useState([]);
@@ -1489,8 +1487,6 @@ export default function SalesForm() {
         }
         setVehicleNo(tx.vehicle_no || "");
         setEwayInvoiceNo(tx.eway_invoice_no || "");
-        setPoNo(tx.po_no || "");
-        setPoDate(tx.po_date ? String(tx.po_date).slice(0, 10) : "");
         setTransportMode(tx.transport_mode || "By Road");
         setTransportCharges(tx.transport_charges != null && tx.transport_charges !== "" ? String(tx.transport_charges) : "");
         if (tx.additional_charges) {
@@ -2648,8 +2644,6 @@ export default function SalesForm() {
       address: shippingAddress || null,
       vehicle_no: vehicleNo ? vehicleNo.trim() : null,
       eway_invoice_no: ewayInvoiceNo ? ewayInvoiceNo.trim() : null,
-      po_no: poNo ? poNo.trim() : null,
-      po_date: poDate || null,
       transport_mode: transportMode ? transportMode.trim() : "By Road",
       transport_charges: Number(transportCharges) || 0,
       additional_charges: additionalCharges.length > 0 ? additionalCharges : null,
@@ -3628,57 +3622,8 @@ export default function SalesForm() {
                 </Col>
               </Row>
 
-              {/* Row 3: Order (P.O.) & Dispatch Details */}
+              {/* Row 3: Dispatch Details */}
               <Row className="g-2 g-md-3 align-items-start mt-1">
-                {/* P.O. Number */}
-                <Col xs={6} sm={6} md={3}>
-                  <div className="d-flex align-items-center mb-1" style={{ minHeight: "26px" }}>
-                    <FaFileInvoice size={13} style={{ color: "#D49A00", marginRight: "8px", flexShrink: 0 }} />
-                    <span className="fw-bold text-truncate" style={{ color: "#0F172A", fontSize: "0.88rem" }}>
-                      P.O. Number
-                    </span>
-                  </div>
-                  <Input
-                    bsSize="sm"
-                    value={poNo}
-                    onChange={(e) => setPoNo(e.target.value)}
-                    placeholder="Enter P.O. No."
-                    maxLength={100}
-                    className="fw-semibold px-2 w-100"
-                    style={{
-                      height: "38px",
-                      backgroundColor: "#fff",
-                      border: "1.5px solid #CBD5E1",
-                      borderRadius: "8px",
-                      fontSize: "0.92rem",
-                    }}
-                  />
-                </Col>
-
-                {/* P.O. Date */}
-                <Col xs={6} sm={6} md={3}>
-                  <div className="d-flex align-items-center mb-1" style={{ minHeight: "26px" }}>
-                    <FaCalendarAlt size={13} style={{ color: "#D49A00", marginRight: "8px", flexShrink: 0 }} />
-                    <span className="fw-bold text-truncate" style={{ color: "#0F172A", fontSize: "0.88rem" }}>
-                      P.O. Date
-                    </span>
-                  </div>
-                  <Input
-                    bsSize="sm"
-                    type="date"
-                    value={poDate}
-                    onChange={(e) => setPoDate(e.target.value)}
-                    className="fw-semibold px-2 w-100"
-                    style={{
-                      height: "38px",
-                      backgroundColor: "#fff",
-                      border: "1.5px solid #CBD5E1",
-                      borderRadius: "8px",
-                      fontSize: "0.92rem",
-                    }}
-                  />
-                </Col>
-
                 {/* Transport / Dispatched Thru */}
                 <Col xs={12} sm={6} md={3}>
                   <div className="d-flex align-items-center mb-1" style={{ minHeight: "26px" }}>
@@ -3763,15 +3708,104 @@ export default function SalesForm() {
                 }
               }
 
-              /* Small Mobile (< 576px) */
-              @media (max-width: 575.98px) {
-                .sales-form-wrapper {
-                  padding: 4px 6px 24px !important;
-                }
-                .pos-table-scroll {
-                  padding: 6px !important;
-                }
-              }
+/* Small Mobile (< 576px) */
+               @media (max-width: 575.98px) {
+                 .sales-form-wrapper {
+                   padding: 4px 6px 24px !important;
+                 }
+                 .pos-table-scroll {
+                   padding: 6px !important;
+                 }
+               }
+
+               /* Medium Tablet / Small Laptop (< 992px) */
+               @media (max-width: 991.98px) {
+                 .sales-bottom-payment-card .fw-extrabold {
+                   font-size: 1.7rem !important;
+                 }
+                 .sales-bottom-payment-card .py-2.rounded-3 {
+                   flex-wrap: wrap !important;
+                   gap: 8px !important;
+                 }
+                 .sales-bottom-payment-card .vr {
+                   display: none !important;
+                 }
+                 .sales-bottom-payment-card .btn {
+                   height: 40px !important;
+                   font-size: 0.85rem !important;
+                 }
+                 .sales-bottom-payment-card .px-3.py-2.rounded-3 {
+                   padding: 10px 12px !important;
+                 }
+               }
+
+               /* Small Tablet (< 768px) */
+               @media (max-width: 767.98px) {
+                 .sales-bottom-payment-card .fw-extrabold {
+                   font-size: 1.45rem !important;
+                 }
+                 .sales-bottom-payment-card .btn {
+                   height: 38px !important;
+                   font-size: 0.82rem !important;
+                 }
+                 .sales-bottom-payment-card .gap-1.5 {
+                   gap: 6px !important;
+                 }
+                 .sales-bottom-payment-card .p-2.5.px-3 {
+                   padding: 8px 10px !important;
+                   font-size: 0.82rem !important;
+                 }
+                 .sales-bottom-payment-card .d-flex.gap-2 {
+                   flex-direction: column !important;
+                 }
+                 .sales-bottom-payment-card .w-75px {
+                   width: 100% !important;
+                 }
+               }
+
+/* Extra Small Mobile (< 480px) */
+                 @media (max-width: 479.98px) {
+                   .sales-bottom-payment-card .fw-extrabold {
+                     font-size: 1.2rem !important;
+                   }
+                   .sales-bottom-payment-card .btn {
+                     height: 36px !important;
+                     font-size: 0.78rem !important;
+                     padding: 0 8px !important;
+                   }
+                   .sales-bottom-payment-card .btn .ms-1.5 {
+                     display: none !important;
+                   }
+                   .sales-bottom-payment-card .fw-bold[style*="0.92rem"] {
+                     font-size: 0.85rem !important;
+                   }
+                   .sales-bottom-payment-card .fw-bold[style*="0.98rem"] {
+                     font-size: 0.88rem !important;
+                   }
+                 }
+
+                 /* Quick preset buttons wrap tighter on small screens */
+                 @media (max-width: 767.98px) {
+                   .sales-bottom-payment-card .d-flex.gap-1.5 > .btn {
+                     flex: 1 1 calc(50% - 6px) !important;
+                     justify-content: center !important;
+                     fontSize: 0.76rem !important;
+                     padding: 4px 6px !important;
+                   }
+                 }
+
+                 /* Top status bar responsiveness */
+                 @media (max-width: 767.98px) {
+                   .sales-form-wrapper > div:first-of-type {
+                     padding: 8px 10px !important;
+                   }
+                   .sales-form-wrapper > div:first-of-type .vr {
+                     display: none !important;
+                   }
+                   .sales-form-wrapper > div:first-of-type .d-none.d-lg-flex {
+                     display: none !important;
+                   }
+                 }
 
               /* Shiva Electronics Gold & Obsidian Themed Table Header */
               .pos-product-table,
@@ -4881,7 +4915,7 @@ export default function SalesForm() {
                 </div>
 
                 {/* Action Buttons: Left (Save & Print) & Right (Save Sale) */}
-                <div className="d-flex align-items-center gap-2 mt-1">
+                <div className="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 mt-1">
                   <Button
                     className="fw-bold d-flex align-items-center justify-content-center flex-fill"
                     disabled={isSubmitting}

@@ -4,26 +4,14 @@ const bcrypt = require("bcryptjs");
 const ATTENDANCE_STATUSES = new Set(["Present", "Late", "Half Day", "On Leave", "Absent"]);
 const LEAVE_TYPES = new Set(["Casual", "Sick", "Earned", "Emergency", "Maternity", "Unpaid"]);
 
-function normalizeAttendanceStatus(rawStatus) {
-  if (!rawStatus) return "Present";
-  const s = String(rawStatus).trim().toUpperCase().replace(/_/g, " ");
-  if (s === "PRESENT") return "Present";
-  if (s === "LATE") return "Late";
-  if (s === "HALF DAY") return "Half Day";
-  if (s === "ON LEAVE") return "On Leave";
-  if (s === "ABSENT") return "Absent";
-  return rawStatus;
-}
-
 function getBranchScope(req, alias = "e") {
   if (req.branchId != null) {
     return { clause: `${alias}.branch_id = ?`, params: [req.branchId] };
   }
-  if (Array.isArray(req.branchIds) && req.branchIds.length > 0) {
-    return { clause: `${alias}.branch_id IN (?)`, params: [req.branchIds] };
-  }
-  if (req.user?.branch_id) {
-    return { clause: `${alias}.branch_id = ?`, params: [req.user.branch_id] };
+  if (Array.isArray(req.branchIds)) {
+    return req.branchIds.length
+      ? { clause: `${alias}.branch_id IN (?)`, params: [req.branchIds] }
+      : { clause: "1 = 0", params: [] };
   }
   return { clause: "1 = 1", params: [] };
 }
@@ -49,6 +37,22 @@ function queryAsync(sql, params = []) {
       else resolve(rows || []);
     });
   });
+}
+
+async function getAuthenticatedEmployeeId(req) {
+  const userId = req.user?.id;
+  const employeeId = req.user?.employee_id || userId;
+  if (!userId && !employeeId) return null;
+
+  const rows = await queryAsync(
+    `SELECT id
+     FROM hrms_employees
+     WHERE user_id = ? OR id = ?
+     ORDER BY CASE WHEN user_id = ? THEN 0 ELSE 1 END
+     LIMIT 1`,
+    [userId || 0, employeeId || 0, userId || 0],
+  );
+  return rows[0]?.id || null;
 }
 
 function invalidId(value) {
@@ -174,9 +178,6 @@ exports.getDashboardSummary = async (req, res) => {
     const todayHalfDay = countStatus("Half Day");
     const todayOnLeave = countStatus("On Leave");
     const todayAbsent = countStatus("Absent");
-    const todayCheckedIn = todayAttendance.filter((employee) => 
-      employee.check_in != null || ["Present", "Late", "Half Day"].includes(employee.attendance_status)
-    ).length;
 
     res.json({
       success: true,
@@ -186,14 +187,13 @@ exports.getDashboardSummary = async (req, res) => {
           totalEmployees,
           activeEmployees,
           inactiveEmployees,
-          todayCheckedIn,
           todayPresent,
           todayLate,
           todayHalfDay,
           todayOnLeave,
           todayAbsent,
           attendanceRate: activeEmployees
-            ? Math.round((todayCheckedIn / activeEmployees) * 100)
+            ? Math.round(((todayPresent + todayLate + todayHalfDay) / activeEmployees) * 100)
             : 0,
           pendingLeaves: Number(leaveStats[0]?.pending_leaves || 0),
           approvedLeaves: Number(leaveStats[0]?.approved_leaves || 0),
@@ -218,69 +218,41 @@ exports.getDashboardSummary = async (req, res) => {
 /* ============================================================== */
 /* MODULE 2: EMPLOYEE MANAGEMENT                                  */
 /* ============================================================== */
-exports.listEmployees = async (req, res) => {
-  try {
-    const { department, status, search, sales_only } = req.query;
-    const scope = getBranchScope(req);
+exports.listEmployees = (req, res) => {
+  const { department, status, search } = req.query;
+  const scope = getBranchScope(req);
+  let sql = `SELECT e.*, d.name AS dept_name, m.name AS manager_name,
+                    u.username AS login_username, r.role_name AS login_role
+             FROM hrms_employees e
+             LEFT JOIN hrms_departments d ON d.name = e.department
+             LEFT JOIN hrms_employees m ON m.id = e.reporting_manager_id
+             LEFT JOIN users u ON u.id = e.user_id
+             LEFT JOIN roles r ON r.id = u.role_id
+             WHERE ${scope.clause}`;
+  const params = [...scope.params];
 
-    // Auto-sync any sales_persons to hrms_employees so they are always present and dynamically linked
-    try {
-      const spRows = await queryAsync("SELECT * FROM sales_persons");
-      for (const sp of spRows) {
-        const existing = await queryAsync(
-          "SELECT id, sales_person_id FROM hrms_employees WHERE sales_person_id = ? OR (email = ? AND email IS NOT NULL AND email != '') OR (phone = ? AND phone IS NOT NULL AND phone != '') LIMIT 1",
-          [sp.id, sp.email, sp.phone]
-        );
-        if (!existing || existing.length === 0) {
-          await queryAsync(
-            `INSERT INTO hrms_employees (name, employee_code, phone, email, department, designation, status, branch_id, sales_person_id)
-             VALUES (?, ?, ?, ?, 'Sales & Billing', 'Sales Executive', ?, ?, ?)`,
-            [sp.name, sp.employee_code || `SP-${sp.id}`, sp.phone, sp.email, sp.status || 'Active', sp.branch_id || 2, sp.id]
-          );
-        } else if (!existing[0].sales_person_id) {
-          await queryAsync("UPDATE hrms_employees SET sales_person_id = ? WHERE id = ?", [sp.id, existing[0].id]);
-        }
-      }
-    } catch (sErr) {
-      console.warn("Auto-sync sales_persons warning:", sErr.message);
-    }
-
-    let sql = `SELECT e.*, d.name AS dept_name, m.name AS manager_name,
-                      u.username AS login_username, r.role_name AS login_role,
-                      sp.id AS sp_id, sp.employee_code AS sp_code, sp.commission_rate, sp.target_amount, sp.status AS sp_status
-               FROM hrms_employees e
-               LEFT JOIN hrms_departments d ON d.name = e.department
-               LEFT JOIN hrms_employees m ON m.id = e.reporting_manager_id
-               LEFT JOIN users u ON u.id = e.user_id
-               LEFT JOIN roles r ON r.id = u.role_id
-               LEFT JOIN sales_persons sp ON (sp.id = e.sales_person_id OR (sp.email IS NOT NULL AND sp.email != '' AND sp.email = e.email) OR (sp.phone IS NOT NULL AND sp.phone != '' AND sp.phone = e.phone))
-               WHERE ${scope.clause}`;
-    const params = [...scope.params];
-
-    if (sales_only === 'true' || sales_only === '1' || sales_only === true) {
-      sql += " AND (e.sales_person_id IS NOT NULL OR sp.id IS NOT NULL OR e.department IN ('Sales & Billing', 'Accounts & Billing') OR r.role_name IN ('Sales Person', 'Cashier') OR e.designation LIKE '%Cashier%')";
-    }
-    if (department && department !== "All") {
-      sql += " AND e.department = ?";
-      params.push(department);
-    }
-    if (status && status !== "All") {
-      sql += " AND e.status = ?";
-      params.push(status);
-    }
-    if (search) {
-      sql += " AND (e.name LIKE ? OR e.employee_code LIKE ? OR e.phone LIKE ? OR e.email LIKE ? OR sp.employee_code LIKE ?)";
-      const term = `%${String(search).trim()}%`;
-      params.push(term, term, term, term, term);
-    }
-
-    sql += " ORDER BY e.name ASC";
-    const rows = await queryAsync(sql, params);
-    res.json({ success: true, data: rows || [] });
-  } catch (err) {
-    console.error("listEmployees error:", err);
-    res.status(500).json({ success: false, message: "Failed to load employees" });
+  if (department && department !== "All") {
+    sql += " AND e.department = ?";
+    params.push(department);
   }
+  if (status && status !== "All") {
+    sql += " AND e.status = ?";
+    params.push(status);
+  }
+  if (search) {
+    sql += " AND (e.name LIKE ? OR e.employee_code LIKE ? OR e.phone LIKE ? OR e.email LIKE ?)";
+    const term = `%${String(search).trim()}%`;
+    params.push(term, term, term, term);
+  }
+
+  sql += " ORDER BY e.name ASC";
+  db.query(sql, params, (err, rows) => {
+    if (err) {
+      console.error("listEmployees error:", err);
+      return res.status(500).json({ success: false, message: "Failed to load employees" });
+    }
+    res.json({ success: true, data: rows || [] });
+  });
 };
 
 exports.getEmployeeById = (req, res) => {
@@ -400,9 +372,9 @@ exports.createEmployee = (req, res) => {
         if (usernameForLogin && hashedPassword) {
           db.query(
             "SELECT id FROM roles WHERE LOWER(role_name) = ? LIMIT 1",
-            [(login_role || ((department === "Accounts & Billing" || String(designation || "").toLowerCase().includes("cashier")) ? "Cashier" : "Sales Person")).toLowerCase()],
+            [(login_role || "Sales Person").toLowerCase()],
             (rErr, rRows) => {
-              const roleId = (rRows && rRows[0]?.id) || ((login_role === "Cashier" || department === "Accounts & Billing" || String(designation || "").toLowerCase().includes("cashier")) ? 8 : 7);
+              const roleId = (rRows && rRows[0]?.id) || 7;
               db.query(
                 `INSERT INTO users (username, password, full_name, email, phone, role_id, branch_id, status)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -426,44 +398,6 @@ exports.createEmployee = (req, res) => {
                 (uErr, uRes) => {
                   if (uErr) console.error("users insert error in createEmployee:", uErr);
                   const userId = uRes?.insertId;
-
-                  // Sync to sales_persons table if sales role or department
-                  if (department === "Sales & Billing" || login_role === "Sales Person" || String(designation).toLowerCase().includes("sales")) {
-                    db.query(
-                      `INSERT INTO sales_persons (employee_code, name, phone, email, commission_rate, target_amount, branch_id, status)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                       ON DUPLICATE KEY UPDATE name = VALUES(name), phone = VALUES(phone), email = VALUES(email), status = VALUES(status)`,
-                      [code, String(name).trim(), phone || null, email || null, Number(req.body.commission_rate) || 0, Number(req.body.target_amount) || 0, branchId, status || "Active"],
-                      (spErr, spRes) => {
-                        const spId = spRes?.insertId;
-                        const updateSql = spId
-                          ? (userId ? "UPDATE hrms_employees SET user_id = ?, sales_person_id = ? WHERE id = ?" : "UPDATE hrms_employees SET sales_person_id = ? WHERE id = ?")
-                          : (userId ? "UPDATE hrms_employees SET user_id = ? WHERE id = ?" : null);
-                        const updateParams = spId
-                          ? (userId ? [userId, spId, employeeId] : [spId, employeeId])
-                          : (userId ? [userId, employeeId] : []);
-                        if (updateSql) {
-                          db.query(updateSql, updateParams, () => {
-                            res.status(201).json({
-                              success: true,
-                              message: "Sales Person added successfully",
-                              id: employeeId,
-                              employee_code: code,
-                            });
-                          });
-                        } else {
-                          res.status(201).json({
-                            success: true,
-                            message: "Sales Person added successfully",
-                            id: employeeId,
-                            employee_code: code,
-                          });
-                        }
-                      }
-                    );
-                    return;
-                  }
-
                   if (userId) {
                     db.query("UPDATE hrms_employees SET user_id = ? WHERE id = ?", [userId, employeeId], () => {
                       res.status(201).json({
@@ -618,7 +552,7 @@ exports.updateEmployee = async (req, res) => {
 
     // Sync or create users login record
     const effectiveUsername = (login_username || updateData.email || updateData.employee_code || "").trim();
-    const roleName = login_role || ((updateData.department === "Accounts & Billing" || String(updateData.designation || "").toLowerCase().includes("cashier")) ? "Cashier" : "Sales Person");
+    const roleName = login_role || "Sales Person";
 
     const empRows = await queryAsync(
       "SELECT id, user_id, name, email, phone, branch_id, status, sales_person_id, employee_code, password FROM hrms_employees WHERE id = ?",
@@ -685,19 +619,10 @@ exports.updateEmployee = async (req, res) => {
 
       // If linked to sales_persons, sync sales_persons table as well
       if (emp.sales_person_id) {
-        let spUpdateSql = "UPDATE sales_persons SET name = ?, phone = ?, email = ?, status = ?";
-        const spParams = [emp.name, emp.phone, emp.email, userStatus];
-        if (req.body.commission_rate !== undefined) {
-          spUpdateSql += ", commission_rate = ?";
-          spParams.push(Number(req.body.commission_rate) || 0);
-        }
-        if (req.body.target_amount !== undefined) {
-          spUpdateSql += ", target_amount = ?";
-          spParams.push(Number(req.body.target_amount) || 0);
-        }
-        spUpdateSql += " WHERE id = ?";
-        spParams.push(emp.sales_person_id);
-        await queryAsync(spUpdateSql, spParams);
+        await queryAsync(
+          "UPDATE sales_persons SET name = ?, phone = ?, email = ?, status = ? WHERE id = ?",
+          [emp.name, emp.phone, emp.email, userStatus, emp.sales_person_id]
+        );
       }
     }
 
@@ -888,26 +813,11 @@ exports.updateAttendance = (req, res) => {
 };
 
 exports.recordAttendance = (req, res) => {
-<<<<<<< HEAD
   if (req.body.id && !invalidId(req.body.id)) {
     return exports.updateAttendance(req, res);
   }
   let { employee_id, status = "Present", check_in, check_out, notes } = req.body;
-=======
-  // Strict RBAC: Only Admin can edit or manually record attendance records
-  const roleLower = String(req.user?.role_name || req.user?.role || "").toLowerCase();
-  const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || req.user?.id === 1;
-  if (!isAdmin) {
-    return res.status(403).json({ success: false, message: "Access denied. Only administrators have permission to edit attendance records." });
-  }
-
-  const { employee_id, notes } = req.body;
-  const check_in = req.body.check_in ? String(req.body.check_in).trim() : null;
-  const check_out = req.body.check_out ? String(req.body.check_out).trim() : null;
-  const status = normalizeAttendanceStatus(req.body.status || "Present");
->>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
   const attendanceDate = req.body.date || localDateString();
-
   if (invalidId(employee_id)) {
     return res.status(400).json({ success: false, message: "A valid employee is required" });
   }
@@ -927,9 +837,12 @@ exports.recordAttendance = (req, res) => {
   if (!ATTENDANCE_STATUSES.has(status)) {
     return res.status(400).json({ success: false, message: "Invalid attendance status" });
   }
+  if (!isValidTime(check_in) || !isValidTime(check_out)) {
+    return res.status(400).json({ success: false, message: "Attendance times must use HH:MM format" });
+  }
 
-  const checkInTime = check_in ? (check_in.length === 5 ? `${check_in}:00` : check_in) : (["Absent", "On Leave"].includes(status) ? null : "09:30:00");
-  const checkOutTime = check_out ? (check_out.length === 5 ? `${check_out}:00` : check_out) : null;
+  const checkInTime = check_in || (["Absent", "On Leave"].includes(status) ? null : "09:30");
+  const checkOutTime = check_out || null;
   const scope = getBranchScope(req);
 
   db.query(
@@ -954,9 +867,9 @@ exports.recordAttendance = (req, res) => {
     (err, result) => {
       if (err) {
         console.error("recordAttendance error:", err);
-        return res.status(500).json({ success: false, message: "Failed to save attendance record" });
+        return res.status(500).json({ success: false, message: "Failed to record attendance" });
       }
-      res.json({ success: true, message: `Attendance record updated successfully as ${status}` });
+      res.json({ success: true, message: `Attendance marked as ${status}` });
     },
   );
 };
@@ -968,7 +881,6 @@ exports.listAttendance = async (req, res) => {
     let whereClause = `${scope.clause}`;
     const params = [...scope.params];
 
-<<<<<<< HEAD
     // Staff Search (matches staff name, employee code, department, designation, or remarks)
     if (search && String(search).trim()) {
       const term = `%${String(search).trim()}%`;
@@ -1023,37 +935,6 @@ exports.listAttendance = async (req, res) => {
       whereClause += " AND a.employee_id = ?";
       params.push(employee_id);
     }
-=======
-    const roleLower = String(req.user?.role_name || req.user?.role || "").toLowerCase();
-    const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || req.user?.id === 1;
-
-    // RBAC: Sales staff and cashiers can ONLY view their own attendance records
-    if (!isAdmin) {
-      if (req.user?.employee_id) {
-        whereClause += " AND (a.employee_id = ? OR a.employee_id IN (SELECT id FROM hrms_employees WHERE user_id = ?))";
-        params.push(Number(req.user.employee_id), Number(req.user.id));
-      } else if (req.user?.id) {
-        whereClause += " AND a.employee_id IN (SELECT id FROM hrms_employees WHERE user_id = ?)";
-        params.push(Number(req.user.id));
-      }
-    } else if (employee_id && employee_id !== "ALL") {
-      whereClause += " AND a.employee_id = ?";
-      params.push(Number(employee_id));
-    }
-
-    // Date-wise filtering
-    if (date && date !== "ALL") {
-      whereClause += " AND a.attendance_date = ?";
-      params.push(date);
-    } else if (month && month !== "ALL") {
-      // Month-wise filtering (e.g. '2026-11')
-      whereClause += " AND a.attendance_date LIKE ?";
-      params.push(`${month}%`);
-    }
-
-    // Only active store staff records
-    whereClause += " AND e.id IS NOT NULL";
->>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
 
     if (status && status !== "ALL" && status !== "") {
       // Support matching by name or underscored format
@@ -1079,19 +960,14 @@ exports.listAttendance = async (req, res) => {
         e.department,
         e.department AS department_name,
         e.designation,
-<<<<<<< HEAD
         e.designation AS designation_name
-=======
-        e.designation AS designation_name,
-        e.sales_person_id
->>>>>>> a9269b78077bc55fadb532a8bd8d6f8cb10180ef
       FROM hrms_attendance a
       JOIN hrms_employees e ON e.id = a.employee_id
       WHERE ${whereClause}
       ORDER BY a.attendance_date DESC, a.check_in DESC
     `, params);
 
-    res.json({ success: true, data: rows || [] });
+    res.json({ success: true, data: rows });
   } catch (err) {
     console.error("listAttendance error:", err);
     res.status(500).json({ success: false, message: err.message || "Failed to load attendance" });
@@ -1116,288 +992,68 @@ exports.getAttendanceCalendar = async (req, res) => {
 };
 
 /* ============================================================== */
-/* MODULE 5: LEAVE MANAGEMENT & NOTIFICATIONS                     */
+/* MODULE 5: LEAVE MANAGEMENT                                     */
 /* ============================================================== */
-exports.listLeaves = async (req, res) => {
-  try {
-    const { status, employee_id } = req.query;
-    const roleLower = String(req.user?.role_name || req.user?.role || "").toLowerCase();
-    const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || req.user?.id === 1;
-    const scope = getBranchScope(req, "e");
-
-    let filterClause = "";
-    const params = [...scope.params];
-
-    // Staff/salespersons only view their own leaves
-    if (!isAdmin) {
-      if (req.user?.employee_id) {
-        filterClause += " AND (l.employee_id = ? OR l.employee_id IN (SELECT id FROM hrms_employees WHERE user_id = ?))";
-        params.push(Number(req.user.employee_id), Number(req.user.id));
-      } else if (req.user?.id) {
-        filterClause += " AND l.employee_id IN (SELECT id FROM hrms_employees WHERE user_id = ?)";
-        params.push(Number(req.user.id));
-      }
-    } else if (employee_id) {
-      filterClause += " AND l.employee_id = ?";
-      params.push(Number(employee_id));
-    }
-
-    if (status && status !== "All" && status !== "ALL") {
-      filterClause += " AND UPPER(l.status) = UPPER(?)";
-      params.push(status);
-    }
-
-    const rows = await queryAsync(
-      `SELECT l.id, l.leave_type, 
-              DATE_FORMAT(l.start_date, '%Y-%m-%d') AS start_date, 
-              DATE_FORMAT(l.end_date, '%Y-%m-%d') AS end_date, 
-              l.total_days, l.reason, l.status, l.approved_by, l.rejection_reason, l.created_at,
-              e.name AS employee_name, e.employee_code, e.department, e.designation, l.employee_id
-       FROM hrms_leaves l
-       JOIN hrms_employees e ON e.id = l.employee_id
-       WHERE ${scope.clause} ${filterClause}
-       ORDER BY l.id DESC LIMIT 500`,
-      params
-    );
-
-    res.json({ success: true, data: rows || [] });
-  } catch (err) {
-    console.error("Failed to load leave requests:", err);
-    res.status(500).json({ success: false, message: "Failed to load leave requests" });
-  }
+exports.listLeaves = (req, res) => {
+  const { status } = req.query;
+  const scope = getBranchScope(req);
+  const statusClause = status && status !== "All" ? " AND l.status = ?" : "";
+  const params = status && status !== "All" ? [...scope.params, status] : scope.params;
+  db.query(
+    `SELECT l.id, l.leave_type, l.start_date, l.end_date, l.total_days, l.reason,
+            l.status, l.approved_by, l.rejection_reason, l.created_at,
+            e.name AS employee_name, e.employee_code, e.department
+     FROM hrms_leaves l
+     JOIN hrms_employees e ON e.id = l.employee_id
+     WHERE ${scope.clause}${statusClause}
+     ORDER BY l.id DESC LIMIT 500`,
+    params,
+    (err, rows) => {
+      if (err) return res.status(500).json({ success: false, message: "Failed to load leave requests" });
+      res.json({ success: true, data: rows || [] });
+    },
+  );
 };
 
-exports.createLeave = async (req, res) => {
-  try {
-    let { employee_id, leave_type = "Casual", start_date, end_date, reason } = req.body;
-
-    const roleLower = String(req.user?.role_name || req.user?.role || "").toLowerCase();
-    const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || req.user?.id === 1;
-
-    // Staff/salespersons always apply for their own employee_id
-    if (!isAdmin) {
-      if (req.user?.employee_id) {
-        employee_id = req.user.employee_id;
-      } else if (req.user?.id) {
-        const empMatch = await queryAsync("SELECT id FROM hrms_employees WHERE user_id = ? LIMIT 1", [req.user.id]);
-        if (empMatch && empMatch.length > 0) employee_id = empMatch[0].id;
-      }
-    }
-
-    if (invalidId(employee_id) || !isValidDate(start_date) || !isValidDate(end_date)) {
-      return res.status(400).json({ success: false, message: "Valid employee, start date and end date are required" });
-    }
-
-    // Normalize leave_type into enum: ('Casual','Sick','Earned','Emergency','Maternity','Unpaid')
-    const validTypes = ['Casual', 'Sick', 'Earned', 'Emergency', 'Maternity', 'Unpaid'];
-    const matchedType = validTypes.find(t => t.toLowerCase() === String(leave_type).toLowerCase()) || 'Casual';
-
-    const start = Date.parse(`${start_date}T00:00:00.000Z`);
-    const end = Date.parse(`${end_date}T00:00:00.000Z`);
-    const days = Math.max(1, Math.floor((end - start) / 86400000) + 1);
-
-    // Fetch employee details
-    const empRows = await queryAsync(
-      `SELECT id, name, employee_code, department, designation, branch_id
-       FROM hrms_employees
-       WHERE id = ? AND status = 'Active'`,
-      [Number(employee_id)]
-    );
-
-    if (!empRows.length) {
-      return res.status(404).json({ success: false, message: "Employee not found or inactive" });
-    }
-    const employee = empRows[0];
-
-    // Insert leave request with status 'Pending'
-    const insertResult = await queryAsync(
-      `INSERT INTO hrms_leaves (employee_id, leave_type, start_date, end_date, total_days, reason, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'Pending')`,
-      [employee.id, matchedType, start_date, end_date, days, reason || null]
-    );
-
-    const leaveId = insertResult.insertId;
-
-    // Send Notification to Admin
-    const notifTitle = `New Leave Request - ${employee.name}`;
-    const notifMsg = `${employee.name} (${employee.designation || employee.department || 'Sales Person'}, ${employee.employee_code}) applied for ${matchedType} Leave from ${start_date} to ${end_date} (${days} day(s)). Reason: ${reason || 'Personal'}`;
-
-    await queryAsync(
-      `INSERT INTO hrms_notifications (user_id, employee_id, type, title, message, reference_id, is_read)
-       VALUES (NULL, ?, 'LEAVE_APPLICATION', ?, ?, ?, 0)`,
-      [employee.id, notifTitle, notifMsg, leaveId]
-    ).catch(e => console.error("Notification insert error:", e));
-
-    res.status(201).json({
-      success: true,
-      message: "Leave application submitted! Admin has been notified for approval.",
-      id: leaveId
-    });
-  } catch (err) {
-    console.error("Failed to submit leave request:", err);
-    res.status(500).json({ success: false, message: "Failed to submit leave request" });
+exports.createLeave = (req, res) => {
+  const { employee_id, leave_type = "Casual", start_date, end_date, reason } = req.body;
+  if (invalidId(employee_id) || !isValidDate(start_date) || !isValidDate(end_date)) {
+    return res.status(400).json({ success: false, message: "Valid employee, start date and end date are required" });
   }
+  const start = Date.parse(`${start_date}T00:00:00.000Z`);
+  const end = Date.parse(`${end_date}T00:00:00.000Z`);
+  const days = Math.floor((end - start) / 86400000) + 1;
+  const scope = getBranchScope(req);
+
+  db.query(
+    `INSERT INTO hrms_leaves (employee_id, leave_type, start_date, end_date, total_days, reason, status)
+     SELECT e.id, ?, ?, ?, ?, ?, 'Pending'
+     FROM hrms_employees e
+     WHERE e.id = ? AND e.status = 'Active' AND ${scope.clause}`,
+    [leave_type, start_date, end_date, days, reason || null, Number(employee_id), ...scope.params],
+    (err, result) => {
+      if (err) return res.status(500).json({ success: false, message: "Failed to submit leave request" });
+      res.status(201).json({ success: true, message: "Leave request submitted", id: result.insertId });
+    },
+  );
 };
 
-exports.updateLeaveStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, rejection_reason } = req.body;
-
-    const roleLower = String(req.user?.role_name || req.user?.role || "").toLowerCase();
-    const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || req.user?.id === 1;
-    if (!isAdmin) {
-      return res.status(403).json({ success: false, message: "Only administrators can approve or reject leave requests" });
-    }
-
-    const normalizedStatus = String(status).toLowerCase() === 'approved' ? 'Approved' : 'Rejected';
-    const reviewer = req.user?.full_name || req.user?.username || 'Admin';
-
-    // Fetch existing leave details
-    const rows = await queryAsync(
-      `SELECT l.id, l.employee_id, l.leave_type, 
-              DATE_FORMAT(l.start_date, '%Y-%m-%d') AS start_date,
-              DATE_FORMAT(l.end_date, '%Y-%m-%d') AS end_date, 
-              l.total_days, l.status, e.name AS employee_name, e.employee_code, e.user_id
-       FROM hrms_leaves l
-       JOIN hrms_employees e ON e.id = l.employee_id
-       WHERE l.id = ?`,
-      [Number(id)]
-    );
-
-    if (!rows.length) {
-      return res.status(404).json({ success: false, message: "Leave application not found" });
-    }
-
-    const leave = rows[0];
-
-    // Update leave status
-    await queryAsync(
-      `UPDATE hrms_leaves
-       SET status = ?, approved_by = ?, rejection_reason = ?
-       WHERE id = ?`,
-      [
-        normalizedStatus,
-        reviewer,
-        normalizedStatus === "Rejected" ? (rejection_reason || "Rejected by Administrator") : null,
-        Number(id)
-      ]
-    );
-
-    // Notify employee of approval/rejection
-    const notifTitle = `Leave Application ${normalizedStatus}`;
-    const notifMsg = `Your ${leave.leave_type} leave request (${leave.start_date} to ${leave.end_date}) has been ${normalizedStatus.toLowerCase()} by ${reviewer}.${normalizedStatus === 'Rejected' && rejection_reason ? ' Reason: ' + rejection_reason : ''}`;
-
-    await queryAsync(
-      `INSERT INTO hrms_notifications (user_id, employee_id, type, title, message, reference_id, is_read)
-       VALUES (?, ?, ?, ?, ?, ?, 0)`,
-      [
-        leave.user_id || null,
-        leave.employee_id,
-        normalizedStatus === 'Approved' ? 'LEAVE_APPROVED' : 'LEAVE_REJECTED',
-        notifTitle,
-        notifMsg,
-        leave.id
-      ]
-    ).catch(e => console.error("Notification insert error:", e));
-
-    res.json({
-      success: true,
-      message: `Leave request has been ${normalizedStatus.toLowerCase()} successfully by ${reviewer}.`
-    });
-  } catch (err) {
-    console.error("Failed to update leave status:", err);
-    res.status(500).json({ success: false, message: "Failed to update leave status" });
-  }
-};
-
-exports.listNotifications = async (req, res) => {
-  try {
-    const roleLower = String(req.user?.role_name || req.user?.role || "").toLowerCase();
-    const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || req.user?.id === 1;
-    let empId = req.user?.employee_id || null;
-    const userId = req.user?.id || null;
-
-    if (!isAdmin && !empId && userId) {
-      try {
-        const empRows = await queryAsync("SELECT id FROM hrms_employees WHERE user_id = ? LIMIT 1", [userId]);
-        if (empRows && empRows.length > 0) empId = empRows[0].id;
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    let query = "";
-    let params = [];
-
-    if (isAdmin) {
-      query = `
-        SELECT n.*, e.name AS employee_name, e.employee_code, e.department, e.designation
-        FROM hrms_notifications n
-        LEFT JOIN hrms_employees e ON e.id = n.employee_id
-        ORDER BY n.id DESC LIMIT 50
-      `;
-    } else {
-      // Strictly restricted to this specific salesperson only
-      query = `
-        SELECT n.*, e.name AS employee_name, e.employee_code, e.department, e.designation
-        FROM hrms_notifications n
-        LEFT JOIN hrms_employees e ON e.id = n.employee_id
-        WHERE (n.user_id = ? AND n.user_id IS NOT NULL AND n.user_id != 0) 
-           OR (n.employee_id = ? AND n.employee_id IS NOT NULL AND n.employee_id != 0)
-        ORDER BY n.id DESC LIMIT 50
-      `;
-      params = [userId || -1, empId || -1];
-    }
-
-    const rows = await queryAsync(query, params);
-    const unreadCount = (rows || []).filter(r => !r.is_read).length;
-    res.json({ success: true, data: rows || [], unreadCount });
-  } catch (err) {
-    console.error("Failed to fetch notifications:", err);
-    res.status(500).json({ success: false, message: "Failed to fetch notifications" });
-  }
-};
-
-exports.markNotificationRead = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const roleLower = String(req.user?.role_name || req.user?.role || "").toLowerCase();
-    const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || req.user?.id === 1;
-    let empId = req.user?.employee_id || null;
-    const userId = req.user?.id || null;
-
-    if (!isAdmin && !empId && userId) {
-      const empRows = await queryAsync("SELECT id FROM hrms_employees WHERE user_id = ? LIMIT 1", [userId]);
-      if (empRows && empRows.length > 0) empId = empRows[0].id;
-    }
-
-    if (id === 'all') {
-      if (isAdmin) {
-        await queryAsync(`UPDATE hrms_notifications SET is_read = 1 WHERE is_read = 0`);
-      } else {
-        await queryAsync(
-          `UPDATE hrms_notifications SET is_read = 1 
-           WHERE is_read = 0 AND ((user_id = ? AND user_id IS NOT NULL) OR (employee_id = ? AND employee_id IS NOT NULL))`,
-          [userId || -1, empId || -1]
-        );
-      }
-    } else {
-      if (isAdmin) {
-        await queryAsync(`UPDATE hrms_notifications SET is_read = 1 WHERE id = ?`, [Number(id)]);
-      } else {
-        await queryAsync(
-          `UPDATE hrms_notifications SET is_read = 1 
-           WHERE id = ? AND ((user_id = ? AND user_id IS NOT NULL) OR (employee_id = ? AND employee_id IS NOT NULL))`,
-          [Number(id), userId || -1, empId || -1]
-        );
-      }
-    }
-    res.json({ success: true, message: "Marked as read" });
-  } catch (err) {
-    console.error("Failed to mark notification read:", err);
-    res.status(500).json({ success: false, message: "Failed to update notification" });
-  }
+exports.updateLeaveStatus = (req, res) => {
+  const { id } = req.params;
+  const { status, rejection_reason } = req.body;
+  const reviewer = req.user?.full_name || req.user?.username || `Admin`;
+  const scope = getBranchScope(req);
+  db.query(
+    `UPDATE hrms_leaves l
+     JOIN hrms_employees e ON e.id = l.employee_id
+     SET l.status = ?, l.approved_by = ?, l.rejection_reason = ?
+     WHERE l.id = ? AND l.status = 'Pending' AND ${scope.clause}`,
+    [status, reviewer, status === "Rejected" ? (rejection_reason || "Rejected") : null, Number(id), ...scope.params],
+    (err, result) => {
+      if (err) return res.status(500).json({ success: false, message: "Failed to update leave status" });
+      res.json({ success: true, message: `Leave request ${status.toLowerCase()} successfully` });
+    },
+  );
 };
 
 /* ============================================================== */
@@ -2017,38 +1673,14 @@ exports.staffLogin = async (req, res) => {
 
 exports.staffQuickPunch = async (req, res) => {
   try {
-    let inputEmpId = req.body.employee_id || req.user?.employee_id || req.user?.id;
-    const { punch_type, remarks } = req.body; // 'CLOCK_IN' or 'CLOCK_OUT'
-
-    // Look up employee record in hrms_employees by id or user_id
-    let employee_id = null;
-    if (inputEmpId) {
-      const rows = await queryAsync(`SELECT id FROM hrms_employees WHERE id = ? OR user_id = ? LIMIT 1`, [inputEmpId, inputEmpId]);
-      if (rows.length) {
-        employee_id = rows[0].id;
-      }
-    }
-    if (!employee_id && req.user) {
-      const rows = await queryAsync(`SELECT id FROM hrms_employees WHERE user_id = ? OR email = ? OR name = ? LIMIT 1`, [req.user.id, req.user.email || '', req.user.username || '']);
-      if (rows.length) {
-        employee_id = rows[0].id;
-      }
-    }
-
-    if (!employee_id && req.user) {
-      const empName = req.user.full_name || req.user.name || req.user.username || "Staff Member";
-      const empCode = `EMP-${String(req.user.id).padStart(3, '0')}`;
-      const branchId = (req.user.branch_ids && req.user.branch_ids[0]) || req.branchId || 2;
-      const roleName = req.user.role_name || req.user.role || "Staff";
-      const insertRes = await queryAsync(`
-        INSERT INTO hrms_employees (user_id, name, designation, department, employee_code, status, branch_id)
-        VALUES (?, ?, ?, ?, ?, 'Active', ?)
-      `, [req.user.id, empName, roleName, 'Store Operations', empCode, branchId]);
-      employee_id = insertRes.insertId;
-    }
+    const employee_id = await getAuthenticatedEmployeeId(req);
+    const { punch_type, remarks } = req.body;
 
     if (!employee_id) {
-      return res.status(400).json({ success: false, message: "Employee profile not found" });
+      return res.status(404).json({ success: false, message: "Your employee profile was not found" });
+    }
+    if (punch_type !== "CLOCK_IN" && punch_type !== "CLOCK_OUT") {
+      return res.status(400).json({ success: false, message: "A valid check-in or check-out action is required" });
     }
 
     const today = localDateString();
@@ -2061,37 +1693,26 @@ exports.staffQuickPunch = async (req, res) => {
 
     if (!existing.length) {
       if (punch_type === "CLOCK_OUT") {
-        await queryAsync(`
-          INSERT INTO hrms_attendance (employee_id, attendance_date, check_in, check_out, status, notes)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `, [employee_id, today, nowTime, nowTime, 'Present', remarks || 'Staff Web Self Punch (Direct Out)']);
-
-        return res.json({
-          success: true,
-          message: `Clock-out recorded at ${nowTime}`,
-          punch: { employee_id, date: today, attendance_date: today, check_in: nowTime, check_out: nowTime, status: 'Present' }
-        });
-      } else {
-        // Clock In
-        let status = "Present";
-        if (nowTime > "09:45") {
-          status = "Late";
-        }
-
-        await queryAsync(`
-          INSERT INTO hrms_attendance (employee_id, attendance_date, check_in, status, notes)
-          VALUES (?, ?, ?, ?, ?)
-        `, [employee_id, today, nowTime, status, remarks || 'Staff Web Self Punch']);
-
-        return res.json({
-          success: true,
-          message: `Clock-in recorded at ${nowTime} (${status})`,
-          punch: { employee_id, date: today, attendance_date: today, check_in: nowTime, check_out: null, status }
-        });
+        return res.status(409).json({ success: false, message: "Check in before checking out" });
       }
+
+      const status = nowTime > "09:45" ? "Late" : "Present";
+      await queryAsync(`
+        INSERT INTO hrms_attendance (employee_id, attendance_date, check_in, status, notes)
+        VALUES (?, ?, ?, ?, ?)
+      `, [employee_id, today, nowTime, status, remarks || 'Staff Web Self Punch']);
+
+      return res.json({
+        success: true,
+        message: `Check-in recorded at ${nowTime} (${status})`,
+        punch: { employee_id, date: today, attendance_date: today, check_in: nowTime, check_out: null, status }
+      });
     } else {
       const att = existing[0];
       if (punch_type === "CLOCK_OUT") {
+        if (!att.check_in || att.check_out) {
+          return res.status(409).json({ success: false, message: "There is no active check-in to check out" });
+        }
         await queryAsync(`
           UPDATE hrms_attendance
           SET check_out = ?, notes = CONCAT(COALESCE(notes, ''), ' | Clocked out at ', ?)
@@ -2104,30 +1725,9 @@ exports.staffQuickPunch = async (req, res) => {
           punch: { employee_id, date: today, attendance_date: today, check_in: att.check_in || nowTime, check_out: nowTime, status: att.status }
         });
       } else {
-        // CLOCK_IN: If already clocked in and not clocked out, preserve initial check-in time and status!
-        if (att.check_in && !att.check_out) {
-          return res.json({
-            success: true,
-            message: `Already clocked in at ${att.check_in} (${att.status})`,
-            punch: { employee_id, date: today, attendance_date: today, check_in: att.check_in, check_out: null, status: att.status }
-          });
-        }
-
-        // If resuming after check_out, reactivate shift
-        let status = att.status || (nowTime > "09:45" ? "Late" : "Present");
-        const initialCheckIn = att.check_in || nowTime;
-
-        await queryAsync(`
-          UPDATE hrms_attendance
-          SET check_out = NULL, status = ?
-          WHERE id = ?
-        `, [status, att.id]);
-
-        return res.json({
-          success: true,
-          message: `Shift resumed at ${nowTime} (${status})`,
-          punch: { employee_id, date: today, attendance_date: today, check_in: initialCheckIn, check_out: null, status }
-        });
+        return res.status(409).json({ success: false, message: att.check_out
+          ? "Today's check-in and check-out are already complete"
+          : "You are already checked in" });
       }
     }
   } catch (err) {
@@ -2138,15 +1738,22 @@ exports.staffQuickPunch = async (req, res) => {
 
 exports.getStaffPortalData = async (req, res) => {
   try {
-    const employee_id = req.params.id || req.user?.employee_id || req.user?.id;
+    const employee_id = await getAuthenticatedEmployeeId(req);
     if (!employee_id) {
-      return res.status(400).json({ success: false, message: "Employee ID required" });
+      return res.status(404).json({ success: false, message: "Your employee profile was not found" });
     }
 
-    const [empRows, attRows, leaveRows, payRows, perfRows] = await Promise.all([
-      queryAsync(`SELECT * FROM hrms_employees WHERE id = ?`, [employee_id]),
-      queryAsync(`SELECT * FROM hrms_attendance WHERE employee_id = ? ORDER BY attendance_date DESC LIMIT 10`, [employee_id]),
-      queryAsync(`SELECT * FROM hrms_leaves WHERE employee_id = ? ORDER BY created_at DESC LIMIT 5`, [employee_id]),
+    const today = localDateString();
+    const monthStart = `${today.slice(0, 7)}-01`;
+    const [empRows, attRows, leaveRows, payRows, perfRows, attendanceSummaryRows, leaveSummaryRows] = await Promise.all([
+      queryAsync(
+        `SELECT id, user_id, employee_code, name, email, phone, department, designation,
+                branch_id, salary, joining_date, employment_type, status, sales_person_id
+         FROM hrms_employees WHERE id = ?`,
+        [employee_id],
+      ),
+      queryAsync(`SELECT * FROM hrms_attendance WHERE employee_id = ? ORDER BY attendance_date DESC LIMIT 31`, [employee_id]),
+      queryAsync(`SELECT * FROM hrms_leaves WHERE employee_id = ? ORDER BY created_at DESC`, [employee_id]),
       queryAsync(`SELECT * FROM hrms_payroll WHERE employee_id = ? ORDER BY month DESC LIMIT 6`, [employee_id]),
       queryAsync(`
         SELECT COALESCE(SUM(t.final_amount), 0) AS actual_sales, COUNT(t.id) AS invoice_count
@@ -2155,14 +1762,34 @@ exports.getStaffPortalData = async (req, res) => {
         WHERE e.id = ? AND t.type = 'sell' AND t.status = 'final'
           AND MONTH(COALESCE(t.sales_date, t.created_at)) = MONTH(CURRENT_DATE())
           AND YEAR(COALESCE(t.sales_date, t.created_at)) = YEAR(CURRENT_DATE())
-      `, [employee_id])
+      `, [employee_id]),
+      queryAsync(
+        `SELECT COUNT(*) AS recorded_days,
+                SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) AS present_days,
+                SUM(CASE WHEN status = 'Late' THEN 1 ELSE 0 END) AS late_days,
+                SUM(CASE WHEN status = 'Half Day' THEN 1 ELSE 0 END) AS half_days,
+                SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) AS absent_days,
+                SUM(CASE WHEN status = 'On Leave' THEN 1 ELSE 0 END) AS leave_days
+         FROM hrms_attendance
+         WHERE employee_id = ? AND attendance_date BETWEEN ? AND ?`,
+        [employee_id, monthStart, today],
+      ),
+      queryAsync(
+        `SELECT COUNT(*) AS total_requests,
+                SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending_requests,
+                SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) AS approved_requests,
+                SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) AS rejected_requests,
+                COALESCE(SUM(CASE WHEN status = 'Approved' THEN total_days ELSE 0 END), 0) AS approved_days
+         FROM hrms_leaves
+         WHERE employee_id = ?`,
+        [employee_id],
+      ),
     ]);
 
     if (!empRows.length) {
       return res.status(404).json({ success: false, message: "Employee profile not found" });
     }
 
-    const today = new Date().toISOString().slice(0, 10);
     const todayPunch = attRows.find(a => (a.attendance_date ? a.attendance_date.slice(0, 10) : '') === today) || null;
 
     res.json({
@@ -2173,7 +1800,9 @@ exports.getStaffPortalData = async (req, res) => {
         recentAttendance: attRows,
         recentLeaves: leaveRows,
         recentPayslips: payRows,
-        monthlyPerformance: perfRows[0] || { actual_sales: 0, invoice_count: 0 }
+        monthlyPerformance: perfRows[0] || { actual_sales: 0, invoice_count: 0 },
+        attendanceSummary: attendanceSummaryRows[0] || {},
+        leaveSummary: leaveSummaryRows[0] || {},
       }
     });
   } catch (err) {
@@ -2182,55 +1811,90 @@ exports.getStaffPortalData = async (req, res) => {
   }
 };
 
-exports.getMyPunchStatus = async (req, res) => {
+exports.getStaffAttendanceHistory = async (req, res) => {
   try {
-    let inputEmpId = req.user?.employee_id || req.user?.id;
-    let employee_id = null;
-    if (inputEmpId) {
-      const rows = await queryAsync("SELECT id FROM hrms_employees WHERE id = ? OR user_id = ? LIMIT 1", [inputEmpId, inputEmpId]);
-      if (rows.length) employee_id = rows[0].id;
-    }
-    if (!employee_id && req.user) {
-      const rows = await queryAsync("SELECT id FROM hrms_employees WHERE user_id = ? OR email = ? OR name = ? LIMIT 1", [req.user.id, req.user.email || '', req.user.username || '']);
-      if (rows.length) employee_id = rows[0].id;
-    }
-
+    const employee_id = await getAuthenticatedEmployeeId(req);
     if (!employee_id) {
-      return res.json({ success: true, punched: false, punch: null, message: "No employee profile mapped" });
+      return res.status(404).json({ success: false, message: "Your employee profile was not found" });
     }
 
-    const today = localDateString();
-    const rows = await queryAsync(`
-      SELECT a.*, DATE_FORMAT(a.attendance_date, '%Y-%m-%d') AS attendance_date,
-             e.name AS employee_name, e.employee_code, e.department
-      FROM hrms_attendance a
-      JOIN hrms_employees e ON e.id = a.employee_id
-      WHERE a.employee_id = ? AND a.attendance_date = ?
-      LIMIT 1
-    `, [employee_id, today]);
-
-    if (!rows.length) {
-      return res.json({ success: true, punched: false, punch: null });
+    const month = req.query.month === undefined ? localDateString().slice(0, 7) : req.query.month;
+    if (typeof month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      return res.status(400).json({ success: false, message: "A valid attendance month is required" });
     }
 
-    const punch = rows[0];
-    return res.json({
+    const [year, monthNumber] = month.split("-").map(Number);
+    const nextMonth = monthNumber === 12
+      ? `${year + 1}-01-01`
+      : `${year}-${String(monthNumber + 1).padStart(2, "0")}-01`;
+    const monthStart = `${month}-01`;
+    const [records, summaryRows] = await Promise.all([
+      queryAsync(
+        `SELECT id, attendance_date, check_in, check_out, status, notes
+         FROM hrms_attendance
+         WHERE employee_id = ? AND attendance_date >= ? AND attendance_date < ?
+         ORDER BY attendance_date DESC`,
+        [employee_id, monthStart, nextMonth],
+      ),
+      queryAsync(
+        `SELECT COUNT(*) AS recorded_days,
+                COALESCE(SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END), 0) AS present_days,
+                COALESCE(SUM(CASE WHEN status = 'Late' THEN 1 ELSE 0 END), 0) AS late_days,
+                COALESCE(SUM(CASE WHEN status = 'Half Day' THEN 1 ELSE 0 END), 0) AS half_days,
+                COALESCE(SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END), 0) AS absent_days,
+                COALESCE(SUM(CASE WHEN status = 'On Leave' THEN 1 ELSE 0 END), 0) AS leave_days
+         FROM hrms_attendance
+         WHERE employee_id = ? AND attendance_date >= ? AND attendance_date < ?`,
+        [employee_id, monthStart, nextMonth],
+      ),
+    ]);
+
+    res.json({
       success: true,
-      punched: Boolean(punch.check_in),
-      punch: {
-        id: punch.id,
-        employee_id: punch.employee_id,
-        attendance_date: punch.attendance_date,
-        date: punch.attendance_date,
-        check_in: punch.check_in,
-        check_out: punch.check_out,
-        status: punch.status,
-        attendance_status: punch.status,
-        notes: punch.notes
-      }
+      data: { month, records, summary: summaryRows[0] || {} },
     });
   } catch (err) {
-    console.error("getMyPunchStatus error:", err);
-    res.status(500).json({ success: false, message: err.message || "Failed to get punch status" });
+    console.error("getStaffAttendanceHistory error:", err);
+    res.status(500).json({ success: false, message: "Failed to load attendance history" });
+  }
+};
+
+exports.createStaffLeave = async (req, res) => {
+  try {
+    const employee_id = await getAuthenticatedEmployeeId(req);
+    if (!employee_id) {
+      return res.status(404).json({ success: false, message: "Your employee profile was not found" });
+    }
+
+    const {
+      leave_type = "Casual",
+      start_date,
+      end_date,
+      reason,
+    } = req.body;
+    if (!LEAVE_TYPES.has(leave_type) || !isValidDate(start_date) || !isValidDate(end_date)) {
+      return res.status(400).json({ success: false, message: "Choose a valid leave type and date range" });
+    }
+    if (end_date < start_date) {
+      return res.status(400).json({ success: false, message: "End date cannot be before start date" });
+    }
+
+    const start = Date.parse(`${start_date}T00:00:00.000Z`);
+    const end = Date.parse(`${end_date}T00:00:00.000Z`);
+    const days = Math.floor((end - start) / 86400000) + 1;
+    const result = await queryAsync(
+      `INSERT INTO hrms_leaves (employee_id, leave_type, start_date, end_date, total_days, reason, status)
+       SELECT id, ?, ?, ?, ?, ?, 'Pending'
+       FROM hrms_employees
+       WHERE id = ? AND status = 'Active'`,
+      [leave_type, start_date, end_date, days, reason ? String(reason).trim() : null, employee_id],
+    );
+    if (!result.affectedRows) {
+      return res.status(403).json({ success: false, message: "Only active employees can request leave" });
+    }
+    res.status(201).json({ success: true, message: "Leave request submitted", id: result.insertId });
+  } catch (err) {
+    console.error("createStaffLeave error:", err);
+    res.status(500).json({ success: false, message: "Failed to submit leave request" });
   }
 };

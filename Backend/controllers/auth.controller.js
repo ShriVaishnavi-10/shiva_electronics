@@ -24,6 +24,7 @@ exports.login = async (req, res) => {
     db.query(userQuery, [identifier, identifier], async (err, userRows) => {
       if (err) {
         console.error("User lookup error:", err);
+        return res.status(500).json({ message: "Database connection error" });
       }
 
       if (userRows && userRows.length > 0) {
@@ -196,11 +197,12 @@ exports.login = async (req, res) => {
         SELECT e.*, sp.employee_code as sp_code
         FROM hrms_employees e
         LEFT JOIN sales_persons sp ON sp.id = e.sales_person_id
-        WHERE e.email = ? OR e.employee_code = ? OR e.phone = ? OR sp.employee_code = ?
+        LEFT JOIN users u ON u.id = e.user_id
+        WHERE e.email = ? OR e.employee_code = ? OR e.phone = ? OR sp.employee_code = ? OR u.username = ?
         LIMIT 1
       `;
 
-      db.query(hrmsQuery, [identifier, identifier, identifier, identifier], async (hErr, hRows) => {
+      db.query(hrmsQuery, [identifier, identifier, identifier, identifier, identifier], async (hErr, hRows) => {
         if (hErr) {
           console.error("HRMS employee lookup error:", hErr);
           return res.status(500).json({ message: "Database connection error" });
