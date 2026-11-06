@@ -32,17 +32,24 @@ const CrmSidebar = ({
   const userRole = storedUser.role_name || "CRM Administrator";
 
   const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
-  const isAdmin =
-    roleLower.includes("admin") ||
-    roleLower.includes("super admin") ||
-    storedUser.id === 1;
   const isSalesPerson =
-    !isAdmin ||
+    Number(storedUser.role_id) === 7 ||
     roleLower.includes("sales") ||
+    roleLower.includes("seller") ||
     roleLower.includes("employee") ||
     roleLower.includes("staff") ||
-    roleLower.includes("cashier") ||
-    storedUser.is_sales_person;
+    storedUser.is_sales_person === true ||
+    Boolean(storedUser.sales_person_id);
+
+  const isAdmin =
+    !isSalesPerson && (
+      roleLower.includes("admin") ||
+      roleLower.includes("super admin") ||
+      Number(storedUser.role_id) === 1 ||
+      Number(storedUser.role_id) === 5 ||
+      Number(storedUser.id) === 1
+    );
+
   const returnPath = isSalesPerson ? "/hrms/dashboard" : "/index/overview";
   const returnLabel = isSalesPerson ? "Back to My Portal" : "Back to Admin Panel";
 
@@ -174,14 +181,14 @@ const CrmSidebar = ({
               navigate("/crm/leads");
               closeMobile();
             }}
-            title={collapsed ? (isAdmin ? "Leads" : "Allocated Leads") : undefined}
+            title={collapsed ? "Leads" : undefined}
           >
             <div className="crm-nav-icon">
               <FaUserFriends />
             </div>
             {!collapsed && (
               <>
-                <span className="crm-nav-text">{isAdmin ? "Leads" : "Allocated Leads"}</span>
+                <span className="crm-nav-text">Leads</span>
               </>
             )}
           </div>

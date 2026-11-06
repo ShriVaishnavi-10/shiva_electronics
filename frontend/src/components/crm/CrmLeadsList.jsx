@@ -18,7 +18,8 @@ import {
   FaClock,
   FaSyncAlt,
   FaFilter,
-  FaUndo
+  FaUndo,
+  FaFileExcel
 } from "react-icons/fa";
 import {
   Modal,
@@ -30,6 +31,7 @@ import {
   Input
 } from "reactstrap";
 import { toast } from "react-toastify";
+import * as XLSX from "xlsx";
 import api from "../../utils/api";
 import { Spinner } from "reactstrap";
 
@@ -39,7 +41,23 @@ const CrmLeadsList = () => {
 
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
-  const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || storedUser.id === 1;
+  const isSalesPerson =
+    Number(storedUser.role_id) === 7 ||
+    roleLower.includes("sales") ||
+    roleLower.includes("seller") ||
+    roleLower.includes("employee") ||
+    roleLower.includes("staff") ||
+    storedUser.is_sales_person === true ||
+    Boolean(storedUser.sales_person_id);
+
+  const isAdmin =
+    !isSalesPerson && (
+      roleLower.includes("admin") ||
+      roleLower.includes("super admin") ||
+      Number(storedUser.role_id) === 1 ||
+      Number(storedUser.role_id) === 5 ||
+      (Number(storedUser.id) === 1 && !storedUser.employee_id)
+    );
   const isSalesStaff = !isAdmin;
 
   const initialAssigned = searchParams.get("assigned_to") || (isSalesStaff ? "me" : "All");
@@ -83,6 +101,98 @@ const CrmLeadsList = () => {
       .then(res => setEmployees(res.data?.data || []))
       .catch(() => {});
   }, []);
+
+  const [exporting, setExporting] = useState(false);
+
+  // Export filtered leads to Excel (.xlsx)
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true);
+      toast.info("Preparing Excel export for leads...");
+
+      // Fetch all matching leads matching current filters
+      const res = await api.get("/crm/leads", {
+        params: {
+          search: debouncedSearch || undefined,
+          status: statusFilter !== "All" ? statusFilter : undefined,
+          priority: priorityFilter !== "All" ? priorityFilter : undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          dateField,
+          assigned_to: assignedFilter !== "All" ? assignedFilter : undefined,
+          all: "true"
+        }
+      });
+
+      const list = res.data?.data || leads;
+      if (!list || list.length === 0) {
+        toast.warn("No leads available to export with current filters");
+        return;
+      }
+
+      const rows = list.map((lead, idx) => {
+        const fullName = `${lead.first_name || ""} ${lead.last_name || ""}`.trim() || lead.lead_title || "Unnamed Lead";
+        return {
+          "S.No": idx + 1,
+          "Lead Code": lead.lead_code || `LD-${lead.id}`,
+          "Lead Title": lead.lead_title || "Inquiry",
+          "Customer Name": fullName,
+          "Phone Number": lead.mobile_number || "—",
+          "Email": lead.email_address || "—",
+          "Interested Product": lead.interested_product || "General",
+          "Expected Budget (₹)": Number(lead.expected_budget || 0),
+          "Lead Status": lead.lead_status || "New",
+          "Priority": lead.priority || "Medium",
+          "Lead Source": lead.lead_source || "Showroom Walk-in",
+          "Assigned Representative": lead.assigned_to || "Unassigned",
+          "Address": lead.address || "—",
+          "City": lead.city || "—",
+          "State": lead.state || "—",
+          "Pincode": lead.pincode || "—",
+          "Next Follow-up Date": lead.followup_date ? String(lead.followup_date).slice(0, 10) : "—",
+          "Follow-up Time": lead.followup_time || "—",
+          "Created Date": lead.created_at ? String(lead.created_at).slice(0, 10) : "—"
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+
+      // Set clean column widths
+      ws["!cols"] = [
+        { wch: 6 },  // S.No
+        { wch: 14 }, // Lead Code
+        { wch: 22 }, // Lead Title
+        { wch: 22 }, // Customer Name
+        { wch: 15 }, // Phone
+        { wch: 22 }, // Email
+        { wch: 22 }, // Product
+        { wch: 18 }, // Budget
+        { wch: 15 }, // Status
+        { wch: 12 }, // Priority
+        { wch: 18 }, // Source
+        { wch: 20 }, // Assigned
+        { wch: 26 }, // Address
+        { wch: 14 }, // City
+        { wch: 14 }, // State
+        { wch: 10 }, // Pincode
+        { wch: 18 }, // Follow-up Date
+        { wch: 14 }, // Follow-up Time
+        { wch: 14 }  // Created Date
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Leads");
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `CRM_Leads_Report_${todayStr}.xlsx`);
+      toast.success(`Successfully exported ${rows.length} leads to Excel!`);
+    } catch (err) {
+      console.error("Failed to export leads to Excel:", err);
+      toast.error("Failed to export leads to Excel");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Pagination & Show Entries
   const [page, setPage] = useState(1);
@@ -274,6 +384,17 @@ const CrmLeadsList = () => {
             </button>
 
             {/* Add Lead Button -> Navigates to the new lead page */}
+            <button
+              className="btn btn-outline-success d-flex align-items-center gap-2 shadow-sm"
+              onClick={handleExportExcel}
+              disabled={exporting}
+              title="Download Leads as Excel (.xlsx)"
+              style={{ borderRadius: "10px", fontSize: "13px", padding: "8px 14px", fontWeight: "600" }}
+            >
+              <FaFileExcel size={14} className="text-success" />
+              <span>{exporting ? "Exporting..." : "Export Excel"}</span>
+            </button>
+
             <button
               className="crm-btn-primary"
               onClick={() => navigate("/crm/leads/new")}

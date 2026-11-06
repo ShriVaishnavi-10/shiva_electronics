@@ -26,7 +26,8 @@ import {
   FaSyncAlt,
   FaPaperclip,
   FaBell,
-  FaCheck
+  FaCheck,
+  FaFileExcel
 } from "react-icons/fa";
 import {
   Modal,
@@ -39,7 +40,14 @@ import {
   Spinner
 } from "reactstrap";
 import { toast } from "react-toastify";
+import * as XLSX from "xlsx";
 import api from "../../utils/api";
+
+// Helper to get today YYYY-MM-DD
+const getTodayStr = () => {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+};
 
 // Date formatting helper without timezone drift
 const formatFollowupDate = (dateStr) => {
@@ -102,7 +110,23 @@ const CrmFollowupsList = () => {
 
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
-  const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || storedUser.id === 1;
+  const isSalesPerson =
+    Number(storedUser.role_id) === 7 ||
+    roleLower.includes("sales") ||
+    roleLower.includes("seller") ||
+    roleLower.includes("employee") ||
+    roleLower.includes("staff") ||
+    storedUser.is_sales_person === true ||
+    Boolean(storedUser.sales_person_id);
+
+  const isAdmin =
+    !isSalesPerson && (
+      roleLower.includes("admin") ||
+      roleLower.includes("super admin") ||
+      Number(storedUser.role_id) === 1 ||
+      Number(storedUser.role_id) === 5 ||
+      (Number(storedUser.id) === 1 && !storedUser.employee_id)
+    );
   const isSalesStaff = !isAdmin;
 
   const initialAssigned = searchParams.get("assigned_to") || (isSalesStaff ? "me" : "All");
@@ -111,6 +135,97 @@ const CrmFollowupsList = () => {
 
   // View Mode: 'list' or 'calendar'
   const [viewMode, setViewMode] = useState("list");
+
+  const [exporting, setExporting] = useState(false);
+
+  // Export filtered follow-ups to Excel (.xlsx)
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true);
+      toast.info("Preparing Excel export for follow-ups...");
+
+      // Fetch all matching follow-ups using current filters
+      const res = await api.get("/crm/followups", {
+        params: {
+          search: search.trim() || undefined,
+          status: statusFilter !== "All" ? statusFilter : undefined,
+          type: typeFilter !== "All" ? typeFilter : undefined,
+          priority: priorityFilter !== "All" ? priorityFilter : undefined,
+          fromDate: fromDate || undefined,
+          toDate: toDate || undefined,
+          dateFilter: dateFilter !== "All" ? dateFilter : undefined,
+          selectedDate: selectedSpecificDate || undefined,
+          assigned_to: assignedFilter !== "All" ? assignedFilter : undefined,
+          all: true
+        }
+      });
+
+      const list = res.data?.data || followups;
+      if (!list || list.length === 0) {
+        toast.warn("No follow-ups available to export with current filters");
+        return;
+      }
+
+      const rows = list.map((item, idx) => ({
+        "S.No": idx + 1,
+        "Follow-up Code": item.followup_code || `FLW-${item.id}`,
+        "Title": item.followup_title || "Follow-up",
+        "Customer / Contact Name": item.entity_name || "—",
+        "Company": item.company_name || "—",
+        "Phone Number": item.mobile_number || "—",
+        "Activity Type": item.followup_type || "Call",
+        "Scheduled Date": item.followup_date ? String(item.followup_date).slice(0, 10) : "—",
+        "Scheduled Time": item.followup_time || "—",
+        "Status": item.followup_status || "Pending",
+        "Priority": item.priority || "Medium",
+        "Assigned Representative": item.assigned_to || "Unassigned",
+        "Customer Requirement": item.customer_requirement || "—",
+        "Customer Response": item.customer_response || "—",
+        "Discussion Remarks": item.discussion_summary || item.discussion_remarks || "—",
+        "Next Action": item.next_action || "—",
+        "Next Follow-up Date": item.next_followup_date ? String(item.next_followup_date).slice(0, 10) : "—",
+        "Next Follow-up Time": item.next_followup_time || "—",
+        "Created Date": item.created_at ? String(item.created_at).slice(0, 10) : "—"
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+
+      // Set clean column widths for Excel
+      ws["!cols"] = [
+        { wch: 6 },  // S.No
+        { wch: 15 }, // Code
+        { wch: 25 }, // Title
+        { wch: 22 }, // Contact
+        { wch: 18 }, // Company
+        { wch: 15 }, // Phone
+        { wch: 15 }, // Type
+        { wch: 15 }, // Date
+        { wch: 15 }, // Time
+        { wch: 14 }, // Status
+        { wch: 12 }, // Priority
+        { wch: 22 }, // Assigned
+        { wch: 25 }, // Requirement
+        { wch: 25 }, // Response
+        { wch: 30 }, // Remarks
+        { wch: 20 }, // Next Action
+        { wch: 18 }, // Next Date
+        { wch: 16 }, // Next Time
+        { wch: 14 }  // Created Date
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Follow-ups");
+
+      const fileDateStr = selectedSpecificDate || (dateFilter === "today" ? getTodayStr() : "All");
+      XLSX.writeFile(wb, `CRM_Followups_Report_${fileDateStr}.xlsx`);
+      toast.success(`Successfully exported ${rows.length} follow-ups to Excel!`);
+    } catch (err) {
+      console.error("Failed to export follow-ups to Excel:", err);
+      toast.error("Failed to export follow-ups to Excel");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // State for List View
   const [followups, setFollowups] = useState([]);
@@ -124,8 +239,11 @@ const CrmFollowupsList = () => {
   const [toDate, setToDate] = useState("");
 
   // Quick Date Filter Tab: 'All', 'today', 'tomorrow', 'this_week', 'upcoming', 'overdue'
-  const [dateFilter, setDateFilter] = useState("All");
-  const [selectedSpecificDate, setSelectedSpecificDate] = useState("");
+  // Default selected date is today's date
+  const paramDate = searchParams.get("date");
+  const paramDateFilter = searchParams.get("dateFilter");
+  const [dateFilter, setDateFilter] = useState(paramDateFilter || (paramDate ? "All" : "today"));
+  const [selectedSpecificDate, setSelectedSpecificDate] = useState(paramDate || "");
 
   // Live Date Metrics
   const [dateMetrics, setDateMetrics] = useState({
@@ -246,7 +364,7 @@ const CrmFollowupsList = () => {
     setPriorityFilter("All");
     setFromDate("");
     setToDate("");
-    setDateFilter("All");
+    setDateFilter("today");
     setSelectedSpecificDate("");
     setPage(1);
   };
@@ -553,6 +671,17 @@ const CrmFollowupsList = () => {
             >
               <FaSyncAlt size={12} className={loading || loadingCalendar ? "fa-spin" : ""} />
               <span className="d-none d-sm-inline">Refresh</span>
+            </button>
+
+            <button
+              className="btn btn-outline-success d-flex align-items-center gap-2 shadow-sm"
+              onClick={handleExportExcel}
+              disabled={exporting}
+              title="Download follow-ups as Excel (.xlsx)"
+              style={{ borderRadius: "10px", fontSize: "13px", padding: "8px 14px", fontWeight: "600" }}
+            >
+              <FaFileExcel size={14} className="text-success" />
+              <span>{exporting ? "Exporting..." : "Export Excel"}</span>
             </button>
 
             <button
@@ -1021,7 +1150,7 @@ const CrmFollowupsList = () => {
                 <div key={wIdx} className="row g-1">
                   {week.map((dayObj, dIdx) => {
                     const isToday = dayObj.dateStr === todayStr;
-                    const isSelected = selectedSpecificDate === dayObj.dateStr;
+                    const isSelected = selectedSpecificDate === dayObj.dateStr || (!selectedSpecificDate && dateFilter === "today" && isToday);
                     const itemsOnThisDay = followupsByDate[dayObj.dateStr] || [];
 
                     return (
@@ -1158,18 +1287,30 @@ const CrmFollowupsList = () => {
             </span>
           </div>
 
-          {selectedSpecificDate && (
+          {(selectedSpecificDate || dateFilter === "today") && (
             <div className="d-flex align-items-center gap-2">
               <span className="badge bg-primary text-white" style={{ fontSize: "12px", padding: "6px 12px" }}>
-                Showing Date: {formatFollowupDate(selectedSpecificDate).formatted}
+                Showing Date: {selectedSpecificDate ? formatFollowupDate(selectedSpecificDate).formatted : `Today (${formatFollowupDate(todayStr).formatted})`}
               </span>
-              <button
-                className="btn btn-sm btn-outline-secondary"
-                onClick={() => setSelectedSpecificDate("")}
-                style={{ borderRadius: "6px", fontSize: "11px" }}
-              >
-                Clear Date
-              </button>
+              {dateFilter === "today" && !selectedSpecificDate && (
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => handleSelectDateTab("All")}
+                  style={{ borderRadius: "6px", fontSize: "11px" }}
+                  title="View all records"
+                >
+                  View All Dates
+                </button>
+              )}
+              {selectedSpecificDate && (
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => setSelectedSpecificDate("")}
+                  style={{ borderRadius: "6px", fontSize: "11px" }}
+                >
+                  Clear Date
+                </button>
+              )}
             </div>
           )}
         </div>

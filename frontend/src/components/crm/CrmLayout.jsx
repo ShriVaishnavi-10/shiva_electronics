@@ -11,12 +11,25 @@ const CrmLayout = () => {
 
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
-  const isAdmin =
-    roleLower.includes("admin") ||
-    roleLower.includes("super admin") ||
-    storedUser.id === 1;
+  const isSalesPerson =
+    Number(storedUser.role_id) === 7 ||
+    roleLower.includes("sales") ||
+    roleLower.includes("seller") ||
+    roleLower.includes("employee") ||
+    roleLower.includes("staff") ||
+    storedUser.is_sales_person === true ||
+    Boolean(storedUser.sales_person_id);
 
-  const isCashier = Boolean(storedUser.is_cashier) || storedUser.role_id === 8 || roleLower.includes("cashier");
+  const isAdmin =
+    !isSalesPerson && (
+      roleLower.includes("admin") ||
+      roleLower.includes("super admin") ||
+      Number(storedUser.role_id) === 1 ||
+      Number(storedUser.role_id) === 5 ||
+      Number(storedUser.id) === 1
+    );
+
+  const isCashier = Boolean(storedUser.is_cashier) || Number(storedUser.role_id) === 8 || roleLower.includes("cashier");
   if (isCashier) {
     return <Navigate to="/hrms/dashboard" replace />;
   }
@@ -25,6 +38,7 @@ const CrmLayout = () => {
   if (!isAdmin) {
     const p = location.pathname.toLowerCase().replace(/\/+$/, "");
     if (
+      p === "" ||
       p === "/crm" ||
       p === "/crm/dashboard" ||
       p.startsWith("/crm/reports") ||

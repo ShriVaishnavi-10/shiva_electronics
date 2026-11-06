@@ -77,7 +77,17 @@ exports.getExpenses = async (req, res) => {
         e.*, 
         c.name as category_name, 
         sc.name as sub_category_name,
-        bl.name as location_name,
+        COALESCE(bl.name, b.branch_name, (SELECT name FROM business_location ORDER BY id ASC LIMIT 1), 'SHIVA ELECTRONICS') as company_name,
+        COALESCE(bl.name, b.branch_name, (SELECT name FROM business_location ORDER BY id ASC LIMIT 1), 'Head Office / Main Branch') as location_name,
+        COALESCE(bl.landmark, b.address, (SELECT landmark FROM business_location ORDER BY id ASC LIMIT 1), '') as company_address,
+        COALESCE(bl.city, b.city, (SELECT city FROM business_location ORDER BY id ASC LIMIT 1), '') as company_city,
+        COALESCE(bl.state, b.state, (SELECT state FROM business_location ORDER BY id ASC LIMIT 1), '') as company_state,
+        COALESCE(bl.zip_code, b.pincode, (SELECT zip_code FROM business_location ORDER BY id ASC LIMIT 1), '') as company_zip,
+        COALESCE(bl.mobile, b.phone, (SELECT mobile FROM business_location ORDER BY id ASC LIMIT 1), '') as company_phone,
+        COALESCE(bl.alternate_number, (SELECT alternate_number FROM business_location ORDER BY id ASC LIMIT 1), '') as company_alternate_phone,
+        COALESCE(bl.email, b.email, (SELECT email FROM business_location ORDER BY id ASC LIMIT 1), '') as company_email,
+        COALESCE(bl.gst_no, b.gst_no, (SELECT gst_no FROM business_location ORDER BY id ASC LIMIT 1), '') as company_gst_no,
+        bl.images as company_logo,
         tm.name as tax_name,
         u.full_name as added_by_name,
         ba.account_name as payment_account_name,
@@ -85,7 +95,8 @@ exports.getExpenses = async (req, res) => {
       FROM expenses e 
       JOIN expense_categories c ON e.category_id = c.id 
       LEFT JOIN expense_categories sc ON e.sub_category_id = sc.id
-      LEFT JOIN business_location bl ON e.branch_id = bl.id
+      LEFT JOIN business_location bl ON (bl.branch_id = e.branch_id OR bl.id = e.branch_id)
+      LEFT JOIN branches b ON (b.id = e.branch_id)
       LEFT JOIN tax_modules tm ON e.tax_id = tm.id
       LEFT JOIN users u ON e.created_by = u.id
       LEFT JOIN bank_accounts ba ON e.payment_account_id = ba.id
@@ -223,7 +234,37 @@ exports.deleteExpense = async (req, res) => {
 exports.getExpenseById = async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await db.promise().query("SELECT * FROM expenses WHERE id = ?", [id]);
+    const query = `
+      SELECT 
+        e.*, 
+        c.name as category_name, 
+        sc.name as sub_category_name,
+        COALESCE(bl.name, b.branch_name, (SELECT name FROM business_location ORDER BY id ASC LIMIT 1), 'SHIVA ELECTRONICS') as company_name,
+        COALESCE(bl.name, b.branch_name, (SELECT name FROM business_location ORDER BY id ASC LIMIT 1), 'Head Office / Main Branch') as location_name,
+        COALESCE(bl.landmark, b.address, (SELECT landmark FROM business_location ORDER BY id ASC LIMIT 1), '') as company_address,
+        COALESCE(bl.city, b.city, (SELECT city FROM business_location ORDER BY id ASC LIMIT 1), '') as company_city,
+        COALESCE(bl.state, b.state, (SELECT state FROM business_location ORDER BY id ASC LIMIT 1), '') as company_state,
+        COALESCE(bl.zip_code, b.pincode, (SELECT zip_code FROM business_location ORDER BY id ASC LIMIT 1), '') as company_zip,
+        COALESCE(bl.mobile, b.phone, (SELECT mobile FROM business_location ORDER BY id ASC LIMIT 1), '') as company_phone,
+        COALESCE(bl.alternate_number, (SELECT alternate_number FROM business_location ORDER BY id ASC LIMIT 1), '') as company_alternate_phone,
+        COALESCE(bl.email, b.email, (SELECT email FROM business_location ORDER BY id ASC LIMIT 1), '') as company_email,
+        COALESCE(bl.gst_no, b.gst_no, (SELECT gst_no FROM business_location ORDER BY id ASC LIMIT 1), '') as company_gst_no,
+        bl.images as company_logo,
+        tm.name as tax_name,
+        u.full_name as added_by_name,
+        ba.account_name as payment_account_name,
+        ba.bank_name as payment_bank_name
+      FROM expenses e 
+      JOIN expense_categories c ON e.category_id = c.id 
+      LEFT JOIN expense_categories sc ON e.sub_category_id = sc.id
+      LEFT JOIN business_location bl ON (bl.branch_id = e.branch_id OR bl.id = e.branch_id)
+      LEFT JOIN branches b ON (b.id = e.branch_id)
+      LEFT JOIN tax_modules tm ON e.tax_id = tm.id
+      LEFT JOIN users u ON e.created_by = u.id
+      LEFT JOIN bank_accounts ba ON e.payment_account_id = ba.id
+      WHERE e.id = ?
+    `;
+    const [rows] = await db.promise().query(query, [id]);
     if (rows.length === 0) {
       return res.status(404).json({ message: "Expense not found" });
     }

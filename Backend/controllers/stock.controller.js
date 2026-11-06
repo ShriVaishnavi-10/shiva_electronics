@@ -457,6 +457,28 @@ exports.getStockDetails = (req, res) => {
     dcParams.push(`%${productTerm}%`, `%${productTerm}%`);
   }
 
+  const retWhere = ["1=1"];
+  const retParams = [];
+  if (locId && String(locId).trim() !== "" && String(locId) !== "all") {
+    retWhere.push("prt.branch_id = (SELECT branch_id FROM business_location WHERE id = ? LIMIT 1)");
+    retParams.push(locId);
+  } else if (branchId3) {
+    retWhere.push("prt.branch_id = ?");
+    retParams.push(branchId3);
+  }
+  if (fromDate && fromDate.trim()) {
+    retWhere.push("prt.return_date >= ?");
+    retParams.push(fromDate.trim());
+  }
+  if (toDate && toDate.trim()) {
+    retWhere.push("prt.return_date <= ?");
+    retParams.push(toDate.trim());
+  }
+  if (productTerm) {
+    retWhere.push("(p4.product_name LIKE ? OR pri.product_name LIKE ?)");
+    retParams.push(`%${productTerm}%`, `%${productTerm}%`);
+  }
+
   const hasTxnFilter = !!(
     (fromDate && fromDate.trim()) ||
     (toDate && toDate.trim()) ||
@@ -466,6 +488,7 @@ exports.getStockDetails = (req, res) => {
   const purWhereClause = purWhere.join(" AND ");
   const salWhereClause = salWhere.join(" AND ");
   const dcWhereClause = dcWhere.join(" AND ");
+  const retWhereClause = retWhere.join(" AND ");
 
   const purSub = `
     SELECT
@@ -506,6 +529,19 @@ exports.getStockDetails = (req, res) => {
     GROUP BY COALESCE(qi.product_name, p3.product_name, '')
   `;
 
+  const retSub = `
+    SELECT
+      COALESCE(pri.product_name, p4.product_name, '') AS product_name,
+      MAX(pri.product_id) AS product_id,
+      SUM(COALESCE(pri.return_qty, 0)) AS total_returned_qty,
+      SUM(COALESCE(pri.return_qty, 0) * COALESCE(pri.unit_price, 0)) AS total_returned_qty_amount
+    FROM purchase_return_items pri
+    INNER JOIN purchase_returns prt ON prt.id = pri.purchase_return_id
+    LEFT JOIN products p4 ON p4.id = pri.product_id
+    WHERE ${retWhereClause}
+    GROUP BY COALESCE(pri.product_name, p4.product_name, '')
+  `;
+
   let unionSql = "";
   let unionParams = [];
 
@@ -531,8 +567,15 @@ exports.getStockDetails = (req, res) => {
        LEFT JOIN products p3 ON p3.id = qi.product_id
        WHERE ${dcWhereClause}
        GROUP BY COALESCE(qi.product_name, p3.product_name, ''))
+      UNION
+      (SELECT COALESCE(pri.product_name, p4.product_name, '') AS product_name, MAX(pri.product_id) AS product_id
+       FROM purchase_return_items pri
+       INNER JOIN purchase_returns prt ON prt.id = pri.purchase_return_id
+       LEFT JOIN products p4 ON p4.id = pri.product_id
+       WHERE ${retWhereClause}
+       GROUP BY COALESCE(pri.product_name, p4.product_name, ''))
     `;
-    unionParams = [...purParams, ...salParams, ...dcParams];
+    unionParams = [...purParams, ...salParams, ...dcParams, ...retParams];
   } else {
     const p0Params = [];
     let p0Where = "1=1";
@@ -565,12 +608,19 @@ exports.getStockDetails = (req, res) => {
        LEFT JOIN products p3 ON p3.id = qi.product_id
        WHERE ${dcWhereClause}
        GROUP BY COALESCE(qi.product_name, p3.product_name, ''))
+      UNION
+      (SELECT COALESCE(pri.product_name, p4.product_name, '') AS product_name, MAX(pri.product_id) AS product_id
+       FROM purchase_return_items pri
+       INNER JOIN purchase_returns prt ON prt.id = pri.purchase_return_id
+       LEFT JOIN products p4 ON p4.id = pri.product_id
+       WHERE ${retWhereClause}
+       GROUP BY COALESCE(pri.product_name, p4.product_name, ''))
     `;
-    unionParams = [...p0Params, ...purParams, ...salParams, ...dcParams];
+    unionParams = [...p0Params, ...purParams, ...salParams, ...dcParams, ...retParams];
   }
 
   const filterClause = hasTxnFilter
-    ? "WHERE (COALESCE(pur.total_in_qty, 0) != 0 OR COALESCE(sal.total_out_qty, 0) != 0 OR COALESCE(dc.total_dc_qty, 0) != 0)"
+    ? "WHERE (COALESCE(pur.total_in_qty, 0) != 0 OR COALESCE(sal.total_out_qty, 0) != 0 OR COALESCE(dc.total_dc_qty, 0) != 0 OR COALESCE(ret.total_returned_qty, 0) != 0)"
     : "";
 
   const countSql = `
@@ -578,8 +628,10 @@ exports.getStockDetails = (req, res) => {
       COUNT(DISTINCT TRIM(u.product_name)) AS total,
       COALESCE(SUM(pur.total_in_qty), 0) AS grand_in_qty,
       COALESCE(SUM(sal.total_out_qty), 0) + COALESCE(SUM(dc.total_dc_qty), 0) AS grand_out_qty,
+      COALESCE(SUM(ret.total_returned_qty), 0) AS grand_returned_qty,
       COALESCE(SUM(pur.total_in_qty_amount), 0) AS grand_in_amount,
-      COALESCE(SUM(sal.total_out_qty_amount), 0) + COALESCE(SUM(dc.total_dc_qty_amount), 0) AS grand_out_amount
+      COALESCE(SUM(sal.total_out_qty_amount), 0) + COALESCE(SUM(dc.total_dc_qty_amount), 0) AS grand_out_amount,
+      COALESCE(SUM(ret.total_returned_qty_amount), 0) AS grand_returned_amount
     FROM (
       SELECT DISTINCT TRIM(u.product_name) AS product_name
       FROM (${unionSql}) AS u
@@ -588,6 +640,7 @@ exports.getStockDetails = (req, res) => {
     LEFT JOIN (${purSub}) AS pur ON LOWER(TRIM(pur.product_name)) = LOWER(TRIM(u.product_name))
     LEFT JOIN (${salSub}) AS sal ON LOWER(TRIM(sal.product_name)) = LOWER(TRIM(u.product_name))
     LEFT JOIN (${dcSub}) AS dc ON LOWER(TRIM(dc.product_name)) = LOWER(TRIM(u.product_name))
+    LEFT JOIN (${retSub}) AS ret ON LOWER(TRIM(ret.product_name)) = LOWER(TRIM(u.product_name))
     ${filterClause}
   `;
 
@@ -597,8 +650,10 @@ exports.getStockDetails = (req, res) => {
       TRIM(u.product_name) AS product_name,
       COALESCE(MAX(pur.total_in_qty), 0) AS total_qty,
       (COALESCE(MAX(sal.total_out_qty), 0) + COALESCE(MAX(dc.total_dc_qty), 0)) AS total_out_qty,
-      GREATEST(0, COALESCE(MAX(pur.total_in_qty), 0) - (COALESCE(MAX(sal.total_out_qty), 0) + COALESCE(MAX(dc.total_dc_qty), 0))) AS total_in_qty,
+      COALESCE(MAX(ret.total_returned_qty), 0) AS total_returned_qty,
+      GREATEST(0, COALESCE(MAX(pur.total_in_qty), 0) - (COALESCE(MAX(sal.total_out_qty), 0) + COALESCE(MAX(dc.total_dc_qty), 0) + COALESCE(MAX(ret.total_returned_qty), 0))) AS total_in_qty,
       COALESCE(MAX(pur.total_in_qty_amount), 0) AS total_in_qty_amount,
+      COALESCE(MAX(ret.total_returned_qty_amount), 0) AS total_returned_qty_amount,
       (COALESCE(MAX(sal.total_out_qty_amount), 0) + COALESCE(MAX(dc.total_dc_qty_amount), 0)) AS total_out_qty_amount
     FROM (
       SELECT DISTINCT
@@ -610,25 +665,31 @@ exports.getStockDetails = (req, res) => {
     LEFT JOIN (${purSub}) AS pur ON LOWER(TRIM(pur.product_name)) = LOWER(TRIM(u.product_name))
     LEFT JOIN (${salSub}) AS sal ON LOWER(TRIM(sal.product_name)) = LOWER(TRIM(u.product_name))
     LEFT JOIN (${dcSub}) AS dc ON LOWER(TRIM(dc.product_name)) = LOWER(TRIM(u.product_name))
+    LEFT JOIN (${retSub}) AS ret ON LOWER(TRIM(ret.product_name)) = LOWER(TRIM(u.product_name))
     ${filterClause}
     GROUP BY TRIM(u.product_name)
     ORDER BY TRIM(u.product_name) ASC
     LIMIT ? OFFSET ?
   `;
 
-  const countParams = [...unionParams, ...purParams, ...salParams, ...dcParams];
-  const dataParams = [...unionParams, ...purParams, ...salParams, ...dcParams, limitNum, offset];
+  const countParams = [...unionParams, ...purParams, ...salParams, ...dcParams, ...retParams];
+  const dataParams = [...unionParams, ...purParams, ...salParams, ...dcParams, ...retParams, limitNum, offset];
 
   db.query(countSql, countParams, (err, countRows) => {
     if (err) return res.status(500).json({ message: err.message || "Failed to get stock details count" });
     const total = countRows[0]?.total ?? 0;
+    const grandIn = Number(countRows[0]?.grand_in_qty) || 0;
+    const grandOut = Number(countRows[0]?.grand_out_qty) || 0;
+    const grandRet = Number(countRows[0]?.grand_returned_qty) || 0;
     const summary = {
       total_products: total,
-      total_in_qty: Number(countRows[0]?.grand_in_qty) || 0,
-      total_out_qty: Number(countRows[0]?.grand_out_qty) || 0,
-      current_qty: Math.max(0, (Number(countRows[0]?.grand_in_qty) || 0) - (Number(countRows[0]?.grand_out_qty) || 0)),
+      total_in_qty: grandIn,
+      total_out_qty: grandOut,
+      total_returned_qty: grandRet,
+      current_qty: Math.max(0, grandIn - (grandOut + grandRet)),
       total_in_amount: Number(countRows[0]?.grand_in_amount) || 0,
       total_out_amount: Number(countRows[0]?.grand_out_amount) || 0,
+      total_returned_amount: Number(countRows[0]?.grand_returned_amount) || 0,
     };
 
     db.query(dataSql, dataParams, (err2, rows) => {
@@ -638,8 +699,10 @@ exports.getStockDetails = (req, res) => {
         product_name: r.product_name || "",
         total_qty: Number(r.total_qty) || 0,
         total_out_qty: Number(r.total_out_qty) || 0,
+        total_returned_qty: Number(r.total_returned_qty) || 0,
         total_in_qty: Number(r.total_in_qty) || 0,
         total_in_qty_amount: Number(r.total_in_qty_amount) || 0,
+        total_returned_qty_amount: Number(r.total_returned_qty_amount) || 0,
         total_out_qty_amount: Number(r.total_out_qty_amount) || 0
       }));
       res.json({ data, total, summary, page: pageNum, limit: limitNum });

@@ -36,6 +36,7 @@ import {
   FaMoneyBillWave,
   FaFileInvoice,
   FaMoneyCheckAlt,
+  FaInfoCircle,
 } from "react-icons/fa";
 import ReactPaginate from "react-paginate";
 import { toast } from "react-toastify";
@@ -430,7 +431,7 @@ export default function PurchaseList() {
       qtyNum = 0;
     }
     if (qtyNum !== "" && qtyNum > maxAvail) {
-      toast.warning(`Cannot return more than available quantity (${maxAvail})`);
+      toast.warning(`Cannot return more than available stock quantity (${maxAvail})`);
       qtyNum = maxAvail;
     }
     updated[idx].return_qty = qtyNum;
@@ -443,6 +444,12 @@ export default function PurchaseList() {
     const validItems = returnItems.filter((it) => Number(it.return_qty) > 0);
     if (validItems.length === 0) {
       toast.error("Please enter a return quantity greater than 0 for at least one item.");
+      return;
+    }
+
+    const exceeds = validItems.some((it) => Number(it.return_qty) > Number(it.available_return_qty));
+    if (exceeds) {
+      toast.error("Return quantity cannot exceed available stock quantity.");
       return;
     }
 
@@ -1260,6 +1267,17 @@ export default function PurchaseList() {
                 </CardBody>
               </Card>
 
+              {/* Stock Rule Notice Banner */}
+              <div
+                className="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-3 shadow-sm border-0"
+                style={{ borderRadius: "8px", background: "#f0f9ff", borderLeft: "4px solid #0284c7" }}
+              >
+                <FaInfoCircle className="text-info flex-shrink-0 fs-5" />
+                <span className="text-dark">
+                  <strong>Stock Rule Applied:</strong> Return quantity is restricted to the current available stock. If any part of the purchased goods has been sold or removed from inventory, only the remaining available stock can be returned.
+                </span>
+              </div>
+
               {/* Items Return Table */}
               <h6 className="fw-bold text-dark mb-2">Select Items to Return:</h6>
               <div className="table-responsive mb-3">
@@ -1269,8 +1287,9 @@ export default function PurchaseList() {
                       <th>#</th>
                       <th className="text-start">Product Name</th>
                       <th>Purchased Qty</th>
+                      <th>Available in Stock</th>
                       <th>Already Returned</th>
-                      <th>Available to Return</th>
+                      <th>Returnable Qty</th>
                       <th>Unit Price (₹)</th>
                       <th style={{ width: "160px" }}>Return Qty</th>
                       <th>Item Total (₹)</th>
@@ -1279,20 +1298,40 @@ export default function PurchaseList() {
                   <tbody>
                     {returnItems.map((item, idx) => {
                       const avail = item.available_return_qty || 0;
+                      const currentStock = Number(item.current_stock) || 0;
+                      const purchasedQty = Number(item.purchased_qty) || 0;
+                      const alreadyReturned = Number(item.already_returned_qty) || 0;
                       const returnQtyNum = Number(item.return_qty) || 0;
                       const lineTotal = returnQtyNum * Number(item.unit_price || 0);
+                      const hasStockShortage = currentStock < (purchasedQty - alreadyReturned);
 
                       return (
                         <tr key={idx} className={returnQtyNum > 0 ? "table-warning" : ""}>
                           <td>{idx + 1}</td>
-                          <td className="text-start fw-bold">{item.product_name}</td>
-                          <td>{Number(item.purchased_qty).toFixed(2)}</td>
+                          <td className="text-start fw-bold">
+                            <div>{item.product_name}</div>
+                            {currentStock <= 0 ? (
+                              <Badge color="danger" style={{ fontSize: "10px" }}>
+                                Out of Stock (0 Available)
+                              </Badge>
+                            ) : hasStockShortage ? (
+                              <Badge color="warning" className="text-dark" style={{ fontSize: "10px" }} title="Some purchased units have already been sold or removed">
+                                Stock Reduced ({currentStock.toFixed(2)} in Stock)
+                              </Badge>
+                            ) : null}
+                          </td>
+                          <td>{purchasedQty.toFixed(2)}</td>
+                          <td className="fw-bold text-info">
+                            {currentStock.toFixed(2)}
+                          </td>
                           <td>
-                            <span className={item.already_returned_qty > 0 ? "text-danger fw-bold" : "text-muted"}>
-                              {Number(item.already_returned_qty).toFixed(2)}
+                            <span className={alreadyReturned > 0 ? "text-danger fw-bold" : "text-muted"}>
+                              {alreadyReturned.toFixed(2)}
                             </span>
                           </td>
-                          <td className="fw-bold text-success">{avail.toFixed(2)}</td>
+                          <td className="fw-bold text-success">
+                            {avail.toFixed(2)}
+                          </td>
                           <td>₹{Number(item.unit_price).toFixed(2)}</td>
                           <td>
                             <Input
@@ -1300,11 +1339,12 @@ export default function PurchaseList() {
                               step="any"
                               min="0"
                               max={avail}
-                              placeholder="0"
+                              placeholder={avail > 0 ? "0" : "0"}
                               disabled={avail <= 0}
                               value={item.return_qty}
                               onChange={(e) => handleReturnQtyChange(idx, e.target.value, avail)}
                               className="text-center fw-bold"
+                              title={avail <= 0 ? "Cannot return item: no stock available" : `Max returnable: ${avail}`}
                             />
                           </td>
                           <td className="fw-bold text-end">₹{lineTotal.toFixed(2)}</td>
@@ -1314,7 +1354,7 @@ export default function PurchaseList() {
                   </tbody>
                   <tfoot className="table-light fw-bold">
                     <tr>
-                      <td colSpan="6" className="text-end">
+                      <td colSpan="7" className="text-end">
                         Total Return Summary:
                       </td>
                       <td className="text-center text-primary">{totalReturnQtyCalc.toFixed(2)}</td>

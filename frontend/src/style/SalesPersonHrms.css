@@ -10,14 +10,14 @@
 
 .sales-hrms-sidebar {
   display: flex;
-  flex: 0 0 260px;
+  flex: 0 0 270px;
   flex-direction: column;
-  width: 260px;
+  width: 270px;
   overflow: hidden;
   color: #e2e8f0;
   background: linear-gradient(180deg, #0e121e 0%, #060810 100%);
   border-right: 1.5px solid rgba(255, 215, 0, 0.22);
-  box-shadow: 6px 0 25px rgba(0, 0, 0, 0.24);
+  box-shadow: 6px 0 25px rgba(0, 0, 0, 0.35);
   transition: width 0.25s ease, flex-basis 0.25s ease;
 }
 
@@ -73,23 +73,30 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 215, 0, 0.28);
+  border: 1px solid rgba(255, 215, 0, 0.3) !important;
   border-radius: 9px;
-  color: #ffd700;
-  background: transparent;
+  color: #ffd700 !important;
+  background: rgba(255, 215, 0, 0.08) !important;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .sales-hrms-collapse {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+}
+
+.sales-hrms-collapse:hover,
+.sales-hrms-icon-button:hover {
+  background: rgba(255, 215, 0, 0.2) !important;
+  border-color: #ffd700 !important;
 }
 
 .sales-hrms-section-label {
-  padding: 22px 18px 9px;
+  padding: 18px 18px 8px;
   color: #64748b;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 800;
   letter-spacing: 1.2px;
   text-transform: uppercase;
@@ -99,8 +106,8 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 5px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 12px;
 }
 
 .sales-hrms-nav-item {
@@ -109,38 +116,38 @@
   min-height: 44px;
   align-items: center;
   gap: 12px;
-  padding: 10px 13px;
-  border: 1px solid transparent;
-  border-radius: 11px;
-  color: #cbd5e1;
-  background: transparent;
-  font-size: 15px;
+  padding: 10px 14px;
+  border: 1px solid transparent !important;
+  border-radius: 12px;
+  color: #cbd5e1 !important;
+  background: transparent !important;
+  font-size: 14.5px;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  transition: all 0.2s ease;
 }
 
 .sales-hrms-nav-item svg {
   flex: 0 0 auto;
-  color: #ffd700;
+  color: #ffd700 !important;
 }
 
 .sales-hrms-nav-item:hover {
-  border-color: rgba(255, 215, 0, 0.28);
-  color: #fff;
-  background: rgba(255, 215, 0, 0.1);
+  border-color: rgba(255, 215, 0, 0.35) !important;
+  color: #ffffff !important;
+  background: rgba(255, 215, 0, 0.12) !important;
 }
 
 .sales-hrms-nav-item.active {
-  border-color: #ffd700;
-  color: #08090d;
-  background: linear-gradient(135deg, #ffd700 0%, #d49a00 100%);
-  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.25);
+  border-color: #ffd700 !important;
+  color: #08090d !important;
+  background: linear-gradient(135deg, #ffd700 0%, #d49a00 100%) !important;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.35) !important;
 }
 
 .sales-hrms-nav-item.active svg {
-  color: #08090d;
+  color: #08090d !important;
 }
 
 .sales-hrms-nav-item > span:nth-child(2) {
@@ -200,30 +207,31 @@
 
 .sales-hrms-sidebar-logout {
   display: flex;
-  min-height: 44px;
+  min-height: 42px;
   align-items: center;
   gap: 12px;
   margin: 0 12px 14px;
-  padding: 10px 13px;
-  border: 1px solid rgba(248, 113, 113, 0.3);
-  border-radius: 11px;
-  color: #fecaca;
-  background: rgba(127, 29, 29, 0.16);
-  font-size: 15px;
+  padding: 10px 14px;
+  border: 1px solid rgba(248, 113, 113, 0.35) !important;
+  border-radius: 12px;
+  color: #fca5a5 !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  font-size: 14.5px;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  transition: all 0.2s ease;
 }
 
 .sales-hrms-sidebar-logout svg {
   flex: 0 0 auto;
+  color: #f87171 !important;
 }
 
 .sales-hrms-sidebar-logout:hover {
-  border-color: rgba(248, 113, 113, 0.6);
-  color: #fff;
-  background: rgba(185, 28, 28, 0.45);
+  border-color: rgba(248, 113, 113, 0.7) !important;
+  color: #ffffff !important;
+  background: rgba(239, 68, 68, 0.28) !important;
 }
 
 .sales-hrms-sidebar.collapsed .sales-hrms-sidebar-logout {
@@ -335,37 +343,58 @@
   min-height: 38px;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 8px 13px;
-  border: 1px solid #047857;
-  border-radius: 9px;
-  color: #fff;
-  background: #047857;
-  font-size: 14px;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid #059669 !important;
+  border-radius: 10px;
+  color: #ffffff !important;
+  background: #059669 !important;
+  font-size: 13.5px;
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.35);
+  transition: all 0.2s ease;
+}
+
+.sales-hrms-punch-button:hover:not(:disabled) {
+  background: #047857 !important;
+  border-color: #047857 !important;
+  transform: translateY(-1px);
 }
 
 .sales-hrms-punch-button.checkout {
-  border-color: #d49a00;
-  color: #08090d;
-  background: linear-gradient(135deg, #ffd700 0%, #d49a00 100%);
+  border-color: #ffd700 !important;
+  color: #08090d !important;
+  background: linear-gradient(135deg, #ffd700 0%, #d49a00 100%) !important;
+  box-shadow: 0 2px 10px rgba(255, 215, 0, 0.35);
 }
 
 .sales-hrms-punch-button:disabled {
-  border-color: #cbd5e1;
-  color: #64748b;
-  background: #e2e8f0;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #94a3b8 !important;
+  background: #1e293b !important;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .sales-hrms-icon-button {
-  width: 36px;
-  height: 36px;
-  color: #ffd700;
-  border-color: rgba(255, 215, 0, 0.35);
-  background: rgba(255, 215, 0, 0.06);
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffd700 !important;
+  border: 1px solid rgba(255, 215, 0, 0.35) !important;
+  background: rgba(255, 215, 0, 0.08) !important;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sales-hrms-icon-button:hover:not(:disabled) {
+  background: rgba(255, 215, 0, 0.2) !important;
+  border-color: #ffd700 !important;
 }
 
 .sales-hrms-icon-button:disabled {

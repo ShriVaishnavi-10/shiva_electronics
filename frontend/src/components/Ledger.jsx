@@ -131,7 +131,25 @@ const Ledger = () => {
           ...filters,
         },
       });
-      const processed = (res.data || []).map(entry => {
+      const filtered = (res.data || []).filter(entry => {
+        // Only display credit values sale and purchase; do not display paid bills
+        if (contactType === "customer" && entry.entry_type === "Sale") {
+          const debit = Number(entry.debit) || 0;
+          const credit = Number(entry.credit) || 0;
+          if (debit - credit <= 0.01 || String(entry.status || "").toLowerCase() === "paid") {
+            return false;
+          }
+        }
+        if (contactType === "vendor" && entry.entry_type === "Purchase") {
+          const debit = Number(entry.debit) || 0;
+          const credit = Number(entry.credit) || 0;
+          if (credit - debit <= 0.01 || String(entry.status || "").toLowerCase() === "paid") {
+            return false;
+          }
+        }
+        return true;
+      });
+      const processed = filtered.map(entry => {
         const debit = Math.round(Number(entry.debit || 0));
         const credit = Math.round(Number(entry.credit || 0));
         return {
@@ -510,7 +528,7 @@ const Ledger = () => {
               ) : (
                 <tr>
                   <td
-                    colSpan="7"
+                    colSpan="9"
                     className="text-center py-5 text-muted border-0"
                   >
                     {loading ? (

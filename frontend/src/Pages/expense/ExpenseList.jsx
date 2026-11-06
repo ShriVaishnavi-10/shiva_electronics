@@ -24,6 +24,7 @@ import { toast } from "react-toastify";
 import { getExpenses, deleteExpense } from "../../api/expenseApi";
 import { useNavigate, useLocation } from "react-router-dom";
 import { serverAssetUrl } from "../../config/urls";
+import apiClient from "../../utils/api";
 import html2pdf from "html2pdf.js";
 
 function numberToWords(num) {
@@ -69,6 +70,18 @@ export default function ExpenseList() {
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [receiptImageBase64, setReceiptImageBase64] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [locations, setLocations] = useState([]);
+
+  useEffect(() => {
+    apiClient.get("/locations")
+      .then((res) => {
+        const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        setLocations(list);
+      })
+      .catch((err) => {
+        console.error("Failed to load locations in ExpenseList:", err);
+      });
+  }, []);
 
   useEffect(() => {
     const p = new URLSearchParams(location.search);
@@ -211,7 +224,7 @@ export default function ExpenseList() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Expense Voucher - ${selectedExpense?.reference_no || "Receipt"}</title>
+          <title>${companyName} - Expense Voucher ${selectedExpense?.reference_no || ""}</title>
           <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #fff; color: #0f172a; }
@@ -267,6 +280,69 @@ export default function ExpenseList() {
       setIsGeneratingPdf(false);
     }
   };
+
+  const matchedLocation = (selectedExpense && locations.length > 0)
+    ? (locations.find((l) => 
+        String(l.id) === String(selectedExpense.branch_id) || 
+        String(l.branch_id) === String(selectedExpense.branch_id)
+      ) || locations[0])
+    : (locations[0] || {});
+
+  const companyName = 
+    selectedExpense?.company_name || 
+    matchedLocation?.name || 
+    selectedExpense?.location_name || 
+    "SHIVA ELECTRONICS";
+
+  const companyAddress = 
+    selectedExpense?.company_address || 
+    matchedLocation?.landmark || 
+    matchedLocation?.address || 
+    "";
+
+  const companyCity = 
+    selectedExpense?.company_city || 
+    matchedLocation?.city || 
+    "";
+
+  const companyState = 
+    selectedExpense?.company_state || 
+    matchedLocation?.state || 
+    "";
+
+  const companyZip = 
+    selectedExpense?.company_zip || 
+    matchedLocation?.zip_code || 
+    matchedLocation?.pincode || 
+    "";
+
+  const companyPhone = 
+    selectedExpense?.company_phone || 
+    matchedLocation?.mobile || 
+    matchedLocation?.phone || 
+    "";
+
+  const companyAltPhone = 
+    selectedExpense?.company_alternate_phone || 
+    matchedLocation?.alternate_number || 
+    "";
+
+  const companyEmail = 
+    selectedExpense?.company_email || 
+    matchedLocation?.email || 
+    "";
+
+  const companyGst = 
+    selectedExpense?.company_gst_no || 
+    matchedLocation?.gst_no || 
+    "";
+
+  const addressParts = [
+    companyAddress,
+    companyCity,
+    companyState ? `${companyState}${companyZip ? ` - ${companyZip}` : ""}` : companyZip
+  ].filter((v) => v && String(v).trim());
+  const formattedCompanyAddress = addressParts.join(", ");
 
   return (
     <Container fluid className="p-4" style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
@@ -579,9 +655,28 @@ export default function ExpenseList() {
             >
               {/* Header */}
               <div className="text-center pb-3 border-bottom mb-3">
-                <h4 className="fw-bold text-dark mb-1 tracking-wide">CLAVIS TECH WORKS</h4>
-                <div className="text-muted small fw-semibold">
-                  {selectedExpense.location_name || "Head Office / Main Branch"}
+                <h4 className="fw-bold text-dark mb-1 tracking-wide text-uppercase" style={{ letterSpacing: "1px" }}>
+                  {companyName}
+                </h4>
+                {formattedCompanyAddress ? (
+                  <div className="text-muted small fw-medium mb-1">
+                    {formattedCompanyAddress}
+                  </div>
+                ) : (
+                  <div className="text-muted small fw-semibold mb-1">
+                    {selectedExpense.location_name || "Head Office / Main Branch"}
+                  </div>
+                )}
+                <div className="text-muted small d-flex flex-wrap justify-content-center gap-3">
+                  {companyPhone && (
+                    <span><strong>Phone:</strong> {companyPhone}{companyAltPhone ? `, ${companyAltPhone}` : ""}</span>
+                  )}
+                  {companyEmail && (
+                    <span><strong>Email:</strong> {companyEmail}</span>
+                  )}
+                  {companyGst && (
+                    <span><strong>GSTIN:</strong> {companyGst}</span>
+                  )}
                 </div>
                 <div className="badge bg-dark text-white px-3 py-1 text-uppercase fw-bold mt-2" style={{ letterSpacing: "1.5px", fontSize: "12px" }}>
                   {Number(selectedExpense.is_gst) === 1 ? "Payment Voucher (GST)" : "Payment Voucher (Non-GST)"}

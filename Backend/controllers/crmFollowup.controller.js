@@ -3,6 +3,7 @@ const {
   getRoleAndSalesIdentity,
   isFollowupAssignedToUser,
   notifySalespersonOnAssignment,
+  scheduleFollowupReminderNotification,
   queryAsync
 } = require("../services/crmRbac.service");
 
@@ -133,7 +134,7 @@ exports.createFollowup = async (req, res) => {
 
     const result = await queryAsync(insertSql, params);
 
-    // If Admin assigned to a Salesperson, notify that specific salesperson
+    // If Admin assigned to a Salesperson, notify that specific salesperson immediately
     if (salesIdentity.isAdmin && effectiveAssignedTo && effectiveAssignedTo !== "Unassigned") {
       notifySalespersonOnAssignment({
         assignedToName: effectiveAssignedTo,
@@ -142,6 +143,39 @@ exports.createFollowup = async (req, res) => {
         message: `Admin assigned follow-up (${followup_type || "Call"}) for ${entity_name || company_name || "Customer"} (${mobile_number || ""}) to you. Priority: ${priority || "Medium"}.`,
         referenceId: result.insertId
       }).catch(e => console.error("Follow-up assignment notification error:", e));
+    }
+
+    // Schedule reminder notification if reminder is enabled
+    const isReminderOn = reminder_enabled === true || reminder_enabled === 1 || reminder_enabled === "true" || reminder_enabled === "1";
+    if (isReminderOn && effectiveAssignedTo && effectiveAssignedTo !== "Unassigned") {
+      scheduleFollowupReminderNotification({
+        assignedToName: effectiveAssignedTo,
+        followupId: result.insertId,
+        followupTitle: followup_title.trim(),
+        customerName: entity_name || company_name || "Customer",
+        mobileNumber: mobile_number,
+        followupType: followup_type,
+        priority: priority,
+        targetDate: followup_date,
+        targetTime: followup_time,
+        reminderBefore: reminder_before
+      }).catch(e => console.error("Follow-up reminder error:", e));
+
+      // Also schedule reminder for next follow-up if date is specified
+      if (next_followup_date && next_followup_date !== "0000-00-00") {
+        scheduleFollowupReminderNotification({
+          assignedToName: effectiveAssignedTo,
+          followupId: result.insertId,
+          followupTitle: `Next Follow-up: ${followup_title.trim()}`,
+          customerName: entity_name || company_name || "Customer",
+          mobileNumber: mobile_number,
+          followupType: followup_type,
+          priority: priority,
+          targetDate: next_followup_date,
+          targetTime: next_followup_time,
+          reminderBefore: reminder_before
+        }).catch(e => console.error("Next follow-up reminder error:", e));
+      }
     }
 
     res.status(201).json({
@@ -191,20 +225,16 @@ exports.getFollowups = async (req, res) => {
     let params = [];
 
     // ROLE-BASED ACCESS CONTROL:
-    // Salespersons can ONLY see follow-ups assigned to them or created by them!
+    // Salespersons can ONLY see follow-ups assigned to them!
     if (!salesIdentity.isAdmin) {
       const nameConditions = [];
       const nameParams = [];
       salesIdentity.names.forEach(n => {
-        nameConditions.push("LOWER(assigned_to) LIKE LOWER(?)");
-        nameParams.push(`%${n}%`);
+        if (n && String(n).trim()) {
+          nameConditions.push("LOWER(assigned_to) LIKE LOWER(?)");
+          nameParams.push(`%${String(n).trim()}%`);
+        }
       });
-      if (salesIdentity.userId) {
-        nameConditions.push("user_id = ?");
-        nameParams.push(salesIdentity.userId);
-        nameConditions.push("created_by = ?");
-        nameParams.push(String(salesIdentity.userId));
-      }
       if (nameConditions.length > 0) {
         whereConditions.push(`(${nameConditions.join(" OR ")})`);
         params.push(...nameParams);
@@ -583,6 +613,32 @@ exports.updateFollowup = async (req, res) => {
       }
     }
 
+    // Reschedule reminder notification if enabled
+    const isReminderOn = reminder_enabled !== undefined
+      ? (reminder_enabled === true || reminder_enabled === 1 || reminder_enabled === "true" || reminder_enabled === "1")
+      : Boolean(existing.reminder_enabled);
+
+    if (isReminderOn && effectiveAssignedTo && effectiveAssignedTo !== "Unassigned") {
+      scheduleFollowupReminderNotification({
+        assignedToName: effectiveAssignedTo,
+        followupId: Number(id),
+        followupTitle: followup_title ? followup_title.trim() : existing.followup_title,
+        customerName: entity_name || existing.entity_name || company_name || existing.company_name || "Customer",
+        mobileNumber: mobile_number || existing.mobile_number,
+        followupType: followup_type || existing.followup_type,
+        priority: priority || existing.priority,
+        targetDate: followup_date || existing.followup_date,
+        targetTime: followup_time || existing.followup_time,
+        reminderBefore: reminder_before || existing.reminder_before,
+        isUpdate: true
+      }).catch(e => console.error("Follow-up reminder update error:", e));
+    } else {
+      queryAsync(
+        "DELETE FROM hrms_notifications WHERE reference_id = ? AND type = 'CRM_FOLLOWUP_REMINDER' AND is_read = 0",
+        [Number(id)]
+      ).catch(e => console.error("Error clearing reminder on disable:", e));
+    }
+
     res.json({
       success: true,
       message: "Follow-up updated successfully"
@@ -885,6 +941,23 @@ exports.scheduleNextFollowup = async (req, res) => {
         message: `Admin scheduled follow-up on ${next_followup_date} at ${scheduled_time || "10:30"} with ${prev.entity_name || prev.company_name || "Customer"} (${prev.mobile_number || ""}).`,
         referenceId: insertResult.insertId
       }).catch(e => console.error("Follow-up notification error:", e));
+    }
+
+    // Schedule reminder for the next scheduled follow-up
+    const isPrevReminderOn = prev.reminder_enabled === 1 || prev.reminder_enabled === true;
+    if (isPrevReminderOn && effectiveAssignedTo && effectiveAssignedTo !== "Unassigned") {
+      scheduleFollowupReminderNotification({
+        assignedToName: effectiveAssignedTo,
+        followupId: insertResult.insertId,
+        followupTitle: newTitle,
+        customerName: prev.entity_name || prev.company_name || "Customer",
+        mobileNumber: prev.mobile_number,
+        followupType: followup_type,
+        priority: priority || prev.priority || "Medium",
+        targetDate: next_followup_date,
+        targetTime: scheduled_time || "10:30",
+        reminderBefore: prev.reminder_before || "15 minutes"
+      }).catch(e => console.error("Next follow-up reminder error:", e));
     }
 
     res.json({

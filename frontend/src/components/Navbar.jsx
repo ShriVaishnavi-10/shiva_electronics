@@ -15,7 +15,19 @@ import {
   Table,
   Input,
 } from "reactstrap";
-import { FaBell, FaCog, FaUserCircle, FaBars, FaCodeBranch, FaPhoneAlt } from "react-icons/fa";
+import {
+  FaBell,
+  FaCog,
+  FaUserCircle,
+  FaBars,
+  FaCodeBranch,
+  FaPhoneAlt,
+  FaClock,
+  FaCalendarCheck,
+  FaBriefcase,
+  FaCheckDouble,
+  FaUserTie
+} from "react-icons/fa";
 import "../style/Header.css";
 import { useNavigate } from "react-router-dom";
 import api, { getUser, getActiveBranchId, setActiveBranchId } from "../utils/api";
@@ -27,6 +39,9 @@ const Header = ({
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [lowStockOpen, setLowStockOpen] = useState(false);
+  const [notifActiveTab, setNotifActiveTab] = useState("crm");
+  const [workNotifications, setWorkNotifications] = useState([]);
+  const [workUnreadCount, setWorkUnreadCount] = useState(0);
   const [companySettings, setCompanySettings] = useState({
     company_name: "MyApp",
     branch: "",
@@ -122,6 +137,59 @@ const Header = ({
 
     fetchLowStock();
   }, []);
+
+  const fetchWorkNotifications = async () => {
+    try {
+      const res = await api.get("/hrms/notifications");
+      if (res.data?.success) {
+        setWorkNotifications(res.data.data || []);
+        setWorkUnreadCount(res.data.unreadCount || 0);
+      }
+    } catch {
+      // offline / non-auth
+    }
+  };
+
+  useEffect(() => {
+    fetchWorkNotifications();
+    const interval = setInterval(fetchWorkNotifications, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const markWorkAsRead = async (id, e) => {
+    e && e.stopPropagation();
+    try {
+      await api.put(`/hrms/notifications/${id}/read`);
+      setWorkNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: 1 } : n))
+      );
+      setWorkUnreadCount((c) => Math.max(0, c - 1));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const markAllWorkAsRead = async () => {
+    try {
+      await api.put("/hrms/notifications/read-all");
+      setWorkNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+      setWorkUnreadCount(0);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleNotificationClick = (notif) => {
+    markWorkAsRead(notif.id);
+    setLowStockOpen(false);
+    if (notif.type?.includes("FOLLOWUP") || notif.title?.toLowerCase().includes("follow-up")) {
+      navigate("/crm/followups");
+    } else if (notif.type?.includes("LEAD") || notif.title?.toLowerCase().includes("lead")) {
+      navigate("/crm/leads");
+    } else {
+      navigate("/crm/followups");
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -219,11 +287,18 @@ const Header = ({
         </NavItem>
         <NavItem
           className="icon-btn position-relative me-2"
-          onClick={() => setLowStockOpen(true)}
+          onClick={() => {
+            if (workUnreadCount > 0) setNotifActiveTab("crm");
+            else setNotifActiveTab("stock");
+            setLowStockOpen(true);
+          }}
+          title="Notifications & Work Reminders"
         >
           <FaBell />
-          {lowStockCount > 0 && (
-            <span className="badge bg-danger notif-badge">{lowStockCount}</span>
+          {workUnreadCount + lowStockCount > 0 && (
+            <span className="badge bg-danger notif-badge">
+              {workUnreadCount + lowStockCount > 9 ? "9+" : workUnreadCount + lowStockCount}
+            </span>
           )}
         </NavItem>
 
@@ -239,6 +314,9 @@ const Header = ({
             <DropdownItem header>
               Account ({currentUser?.role_name || currentUser?.role || "User"})
             </DropdownItem>
+            <DropdownItem onClick={() => navigate("/crm")}>
+              ✦ CRM Workstation
+            </DropdownItem>
             <DropdownItem onClick={() => navigate("/hrms/dashboard")}>
               ✦ My HRMS & Attendance
             </DropdownItem>
@@ -253,31 +331,139 @@ const Header = ({
         toggle={() => setLowStockOpen(false)}
         size="lg"
       >
-        <ModalHeader toggle={() => setLowStockOpen(false)}>
-          Low Stock Products
+        <ModalHeader toggle={() => setLowStockOpen(false)} className="border-bottom-0 pb-0">
+          <div className="d-flex align-items-center gap-3">
+            <button
+              type="button"
+              className={`btn btn-sm ${notifActiveTab === "crm" ? "btn-primary font-weight-bold" : "btn-light border"}`}
+              style={{ borderRadius: "20px", padding: "6px 16px", fontSize: "13px" }}
+              onClick={() => setNotifActiveTab("crm")}
+            >
+              <FaBell className="me-1" /> CRM & Reminders
+              {workUnreadCount > 0 && (
+                <span className="badge bg-danger ms-2">{workUnreadCount}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${notifActiveTab === "stock" ? "btn-primary font-weight-bold" : "btn-light border"}`}
+              style={{ borderRadius: "20px", padding: "6px 16px", fontSize: "13px" }}
+              onClick={() => setNotifActiveTab("stock")}
+            >
+              Low Stock Alerts
+              {lowStockCount > 0 && (
+                <span className="badge bg-warning text-dark ms-2">{lowStockCount}</span>
+              )}
+            </button>
+          </div>
         </ModalHeader>
-        <ModalBody>
-          {lowStockItems.length === 0 ? (
-            <p className="text-muted mb-0">No low stock products.</p>
+        <ModalBody className="pt-3">
+          {notifActiveTab === "crm" ? (
+            <div>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <span className="text-muted small">Work assignments and scheduled follow-up reminders</span>
+                {workUnreadCount > 0 && (
+                  <button
+                    className="btn btn-sm btn-link text-decoration-none p-0"
+                    style={{ fontSize: "12px" }}
+                    onClick={markAllWorkAsRead}
+                  >
+                    <FaCheckDouble className="me-1" /> Mark all as read
+                  </button>
+                )}
+              </div>
+
+              {workNotifications.length === 0 ? (
+                <div className="text-center py-5 text-muted">
+                  <FaBriefcase size={36} className="text-black-50 mb-2" />
+                  <div className="fw-semibold">No work reminders</div>
+                  <small>Follow-up reminders will appear here when due</small>
+                </div>
+              ) : (
+                <div style={{ maxHeight: "420px", overflowY: "auto" }}>
+                  {workNotifications.map((n) => {
+                    const isReminder = n.type === "CRM_FOLLOWUP_REMINDER" || n.is_reminder_due === 1 || n.title?.includes("⏰");
+                    return (
+                      <div
+                        key={n.id}
+                        onClick={() => handleNotificationClick(n)}
+                        className="p-3 mb-2 rounded border d-flex align-items-start gap-3"
+                        style={{
+                          backgroundColor: n.is_read ? "#ffffff" : (isReminder ? "#fffdf5" : "#f8fafc"),
+                          borderColor: isReminder && !n.is_read ? "#f59e0b" : "#e2e8f0",
+                          borderLeftWidth: isReminder && !n.is_read ? "4px" : "1px",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        <div
+                          className="rounded d-flex align-items-center justify-content-center flex-shrink-0"
+                          style={{
+                            width: "36px",
+                            height: "36px",
+                            backgroundColor: isReminder ? "#fef3c7" : "#eff6ff",
+                            color: isReminder ? "#b45309" : "#2563eb"
+                          }}
+                        >
+                          {isReminder ? <FaClock size={16} /> : <FaCalendarCheck size={16} />}
+                        </div>
+                        <div className="flex-grow-1">
+                          <div className="d-flex justify-content-between align-items-center">
+                            <span className="fw-bold" style={{ fontSize: "13.5px", color: n.is_read ? "#334155" : "#0f172a" }}>
+                              {isReminder && (
+                                <span className="badge bg-warning text-dark me-2" style={{ fontSize: "10px" }}>
+                                  REMINDER
+                                </span>
+                              )}
+                              {n.title}
+                            </span>
+                            {!n.is_read && (
+                              <span className="badge bg-primary" style={{ fontSize: "10px" }}>New</span>
+                            )}
+                          </div>
+                          <div className="text-muted small mt-1" style={{ fontSize: "12px", lineHeight: "1.4" }}>
+                            {n.message}
+                          </div>
+                          <div className="d-flex justify-content-between align-items-center mt-2">
+                            <span className="text-muted" style={{ fontSize: "11px" }}>
+                              {n.created_at ? new Date(n.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "Just now"}
+                            </span>
+                            <span className="text-primary fw-semibold small">Open in CRM &rarr;</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           ) : (
-            <Table bordered hover size="sm" className="align-middle mb-0">
-              <thead className="table-light">
-                <tr>
-                  <th>S.No</th>
-                  <th>Product</th>
-                  <th>Quantity</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lowStockItems.map((p, index) => (
-                  <tr key={p.id}>
-                    <td>{index + 1}</td>
-                    <td>{p.product_name}</td>
-                    <td>{p.qty}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
+            <div>
+              {lowStockItems.length === 0 ? (
+                <p className="text-muted mb-0 py-4 text-center">No low stock products.</p>
+              ) : (
+                <Table bordered hover size="sm" className="align-middle mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th>S.No</th>
+                      <th>Product</th>
+                      <th>Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lowStockItems.map((p, index) => (
+                      <tr key={p.id}>
+                        <td>{index + 1}</td>
+                        <td>{p.product_name}</td>
+                        <td>
+                          <span className="badge bg-danger">{p.qty}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </div>
           )}
         </ModalBody>
       </Modal>

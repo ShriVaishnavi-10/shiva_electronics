@@ -75,18 +75,27 @@ button:focus-visible {
 }
 
 /* ── HRMS Component Resets (Avoid index.css global button/h1 overrides) ── */
-.hrms-scope button {
+.hrms-scope button,
+.sales-hrms-layout button,
+.sales-hrms-sidebar button,
+.sales-hrms-header button,
+.hrms-sidebar button,
+.crm-sidebar button,
+.sidebar button {
   background-color: transparent;
   border-radius: inherit;
   font-size: inherit;
   padding: 0;
   border: none;
 }
-.hrms-scope h1 {
+.hrms-scope h1,
+.sales-hrms-layout h1 {
   font-size: inherit;
   line-height: inherit;
 }
-.hrms-scope button:hover {
+.hrms-scope button:hover,
+.sales-hrms-layout button:hover,
+.sales-hrms-sidebar button:hover {
   border-color: transparent;
 }
 
@@ -98,7 +107,7 @@ button:focus-visible {
   a:hover {
     color: #FFD700;
   }
-  button:not([class*="crm-"]):not([class*="btn"]):not([style*="background"]) {
+  button:not([class*="crm-"]):not([class*="btn"]):not([class*="sales-hrms"]):not([class*="hrms"]):not([class*="sidebar"]):not([class*="menu"]):not([style*="background"]) {
     background-color: #f9f9f9;
   }
 }

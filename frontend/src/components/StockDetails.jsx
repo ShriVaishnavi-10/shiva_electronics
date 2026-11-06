@@ -146,6 +146,7 @@ export default function StockDetails() {
         "Product",
         "Total Qty",
         "Total Out Qty",
+        "Returned Quantity",
         "Total In Qty",
         "Total Out Qty Amount",
         "Total In Qty Amount",
@@ -155,6 +156,7 @@ export default function StockDetails() {
         r.product_name || "",
         formatNum(r.total_qty),
         formatNum(r.total_out_qty),
+        formatNum(r.total_returned_qty),
         formatNum(r.total_in_qty),
         formatCurrency(r.total_out_qty_amount),
         formatCurrency(r.total_in_qty_amount),
@@ -313,6 +315,7 @@ export default function StockDetails() {
                   <th>Product</th>
                   <th className="text-end">Total Qty</th>
                   <th className="text-end">Total Out Qty</th>
+                  <th className="text-end">Returned Quantity</th>
                   <th className="text-end">Total In Qty</th>
                   <th className="text-end">Total Out Qty Amount</th>
                   <th className="text-end">Total In Qty Amount</th>
@@ -321,13 +324,13 @@ export default function StockDetails() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-4">
+                    <td colSpan="8" className="text-center py-4">
                       Loading...
                     </td>
                   </tr>
                 ) : data.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-4">
+                    <td colSpan="8" className="text-center py-4">
                       No records found
                     </td>
                   </tr>
@@ -340,6 +343,9 @@ export default function StockDetails() {
                       <td>{r.product_name || "-"}</td>
                       <td className="text-end">{formatNum(r.total_qty)}</td>
                       <td className="text-end">{formatNum(r.total_out_qty)}</td>
+                      <td className="text-end fw-semibold text-warning">
+                        {formatNum(r.total_returned_qty)}
+                      </td>
                       <td className="text-end">{formatNum(r.total_in_qty)}</td>
                       <td className="text-end">
                         {formatCurrency(r.total_out_qty_amount)}

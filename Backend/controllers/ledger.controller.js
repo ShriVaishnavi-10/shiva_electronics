@@ -36,6 +36,7 @@ exports.getLedger = async (req, res) => {
           t.final_amount as debit,
           0 as credit,
           c.customer_name as contact_name,
+          t.payment_status,
           t.status
         FROM transactions t
         LEFT JOIN customers c ON t.contact_id = c.id
@@ -95,7 +96,13 @@ exports.getLedger = async (req, res) => {
         const totalPaid = txPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
         sale.credit = totalPaid;
         sale.payments = txPayments;
-        ledgerEntries.push(sale);
+
+        // ONLY display credit values sale. Do not display paid sale bills (fully settled or payment_status = 'paid')
+        const billedAmount = Number(sale.debit) || 0;
+        const isPaid = (billedAmount - totalPaid <= 0.01) || String(sale.payment_status || "").toLowerCase() === "paid";
+        if (!isPaid) {
+          ledgerEntries.push(sale);
+        }
       }
 
       // If any payment was made for a transaction not in `sales` (e.g. sale date out of range):
@@ -136,6 +143,7 @@ exports.getLedger = async (req, res) => {
           COALESCE((SELECT SUM(total) FROM purchase_items WHERE purchase_id = p.id), 0) as credit,
           v.company_name as contact_name,
           p.payment_type,
+          p.payment_status,
           p.bank_account_id,
           ba.account_name as bank_account_name,
           (SELECT GROUP_CONCAT(COALESCE(pr.product_name, pi.product_name, 'Unknown Item') SEPARATOR ', ') 
@@ -289,7 +297,13 @@ exports.getLedger = async (req, res) => {
         purchase.debit = totalPaid;
         purchase.payments = purchase.matchingPays;
         delete purchase.matchingPays;
-        ledgerEntries.push(purchase);
+
+        // ONLY display credit values purchase. Do not display paid purchase bills (fully settled or payment_status = 'paid')
+        const purchaseTotal = Number(purchase.credit) || 0;
+        const isPaid = (purchaseTotal - totalPaid <= 0.01) || String(purchase.payment_status || "").toLowerCase() === "paid";
+        if (!isPaid) {
+          ledgerEntries.push(purchase);
+        }
       }
 
       // Standalone vendor payments not linked to any purchase

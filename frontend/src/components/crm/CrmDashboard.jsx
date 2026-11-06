@@ -46,10 +46,29 @@ const CrmDashboard = () => {
   const storedUser = getUser() || JSON.parse(localStorage.getItem("user") || "{}");
   const userName = storedUser.name || storedUser.username || "Administrator";
   const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
+  const isSalesPerson =
+    Number(storedUser.role_id) === 7 ||
+    roleLower.includes("sales") ||
+    roleLower.includes("seller") ||
+    roleLower.includes("employee") ||
+    roleLower.includes("staff") ||
+    storedUser.is_sales_person === true ||
+    Boolean(storedUser.sales_person_id);
+
   const isAdmin =
-    roleLower.includes("admin") ||
-    roleLower.includes("super admin") ||
-    storedUser.id === 1;
+    !isSalesPerson && (
+      roleLower.includes("admin") ||
+      roleLower.includes("super admin") ||
+      Number(storedUser.role_id) === 1 ||
+      Number(storedUser.role_id) === 5 ||
+      Number(storedUser.id) === 1
+    );
+
+  useEffect(() => {
+    if (!isAdmin) {
+      navigate("/crm/leads", { replace: true });
+    }
+  }, [isAdmin, navigate]);
 
   const userBranches = storedUser.branches || [];
   const activeBranchId = getActiveBranchId();

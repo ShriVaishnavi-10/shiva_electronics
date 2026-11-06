@@ -244,18 +244,16 @@ exports.getLeads = async (req, res) => {
     let params = [...bw.params];
 
     // ROLE-BASED ACCESS CONTROL:
-    // Salespersons can ONLY see leads assigned to them or created by them!
+    // Salespersons can ONLY see leads assigned to them!
     if (!salesIdentity.isAdmin) {
       const nameConditions = [];
       const nameParams = [];
       salesIdentity.names.forEach(n => {
-        nameConditions.push("LOWER(assigned_to) LIKE LOWER(?)");
-        nameParams.push(`%${n}%`);
+        if (n && String(n).trim()) {
+          nameConditions.push("LOWER(assigned_to) LIKE LOWER(?)");
+          nameParams.push(`%${String(n).trim()}%`);
+        }
       });
-      if (salesIdentity.userId) {
-        nameConditions.push("created_by = ?");
-        nameParams.push(salesIdentity.userId);
-      }
       if (nameConditions.length > 0) {
         where.push(`(${nameConditions.join(" OR ")})`);
         params.push(...nameParams);
@@ -1561,7 +1559,9 @@ exports.getSalesPerformanceReport = async (req, res) => {
       basis = "all", // "all", "today", "this_week", "this_month", "custom"
       startDate = "",
       endDate = "",
-      search = ""
+      search = "",
+      salesPerson = "",
+      salesPersonId = ""
     } = req.query;
 
     const branchId = getBranchId(req);
@@ -1731,11 +1731,23 @@ exports.getSalesPerformanceReport = async (req, res) => {
       });
     }
 
-    // Apply search filter if provided
+    // Apply sales person dropdown filter if provided
     let filteredReports = reports;
+    if (salesPerson && salesPerson.trim() && salesPerson !== "all" && salesPerson !== "All") {
+      const spClean = salesPerson.trim().toLowerCase();
+      filteredReports = filteredReports.filter(r =>
+        r.name.toLowerCase() === spClean ||
+        r.name.toLowerCase().includes(spClean) ||
+        r.sales_code.toLowerCase() === spClean
+      );
+    } else if (salesPersonId && salesPersonId !== "all") {
+      filteredReports = filteredReports.filter(r => String(r.id) === String(salesPersonId));
+    }
+
+    // Apply search filter if provided
     if (search && search.trim()) {
       const q = search.trim().toLowerCase();
-      filteredReports = reports.filter(r => 
+      filteredReports = filteredReports.filter(r => 
         r.name.toLowerCase().includes(q) ||
         r.sales_code.toLowerCase().includes(q) ||
         r.phone.toLowerCase().includes(q) ||
@@ -1764,7 +1776,13 @@ exports.getSalesPerformanceReport = async (req, res) => {
       success: true,
       basis,
       summary,
-      salesPersons: filteredReports
+      salesPersons: filteredReports,
+      allSalesPersons: reports.map(r => ({
+        id: r.id,
+        name: r.name,
+        sales_code: r.sales_code,
+        phone: r.phone
+      }))
     });
   } catch (err) {
     console.error("Error in getSalesPerformanceReport:", err);

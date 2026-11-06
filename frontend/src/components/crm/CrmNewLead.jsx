@@ -41,8 +41,24 @@ const CrmNewLead = () => {
 
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
-  const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || storedUser.id === 1;
-  const myName = storedUser.displayName || storedUser.name || storedUser.username || "Me";
+  const isSalesPerson =
+    Number(storedUser.role_id) === 7 ||
+    roleLower.includes("sales") ||
+    roleLower.includes("seller") ||
+    roleLower.includes("employee") ||
+    roleLower.includes("staff") ||
+    storedUser.is_sales_person === true ||
+    Boolean(storedUser.sales_person_id);
+
+  const isAdmin =
+    !isSalesPerson && (
+      roleLower.includes("admin") ||
+      roleLower.includes("super admin") ||
+      Number(storedUser.role_id) === 1 ||
+      Number(storedUser.role_id) === 5 ||
+      (Number(storedUser.id) === 1 && !storedUser.employee_id)
+    );
+  const myName = storedUser.displayName || storedUser.name || storedUser.full_name || storedUser.username || "Me";
 
   const [formData, setFormData] = useState(() => ({
     ...initialFormState,

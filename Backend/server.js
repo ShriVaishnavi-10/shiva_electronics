@@ -116,6 +116,7 @@ app.use("/api", require("./routes/dailySalesReport.routes"));
 app.use("/api", require("./routes/crmLead.routes"));
 app.use("/api/crm/followups", require("./routes/crmFollowup.routes"));
 app.use("/api/hrms", require("./routes/hrms.routes"));
+app.use("/api/notifications", require("./routes/notification.routes"));
 
 /* -------------------- ERROR HANDLER -------------------- */
 
@@ -138,6 +139,7 @@ const { updateSslToCtw } = require("./migrations/update_ssl_to_ctw");
 const { ensureSalesPersonTables } = require("./migrations/create_sales_person_tables");
 const { ensureCrmLeadsTables } = require("./migrations/create_crm_leads_tables");
 const { ensureCrmFollowupsTables } = require("./migrations/create_crm_followups_tables");
+const { ensureHrmsNotificationsTables } = require("./migrations/create_hrms_notifications_table");
 const { ensureHrmsTables } = require("./migrations/create_hrms_tables");
 const { ensureProductQuantityColumn } = require("./migrations/add_product_quantity");
 const { ensurePoFieldsColumns } = require("./migrations/add_po_fields_to_transactions");
@@ -157,6 +159,7 @@ app.listen(PORT, "0.0.0.0", () => {
   ensureSalesPersonTables().catch(() => {});
   ensureCrmLeadsTables().catch(() => {});
   ensureCrmFollowupsTables().catch(() => {});
+  ensureHrmsNotificationsTables().catch(() => {});
   ensureHrmsTables().catch((err) => {
     console.error("HRMS initialization failed:", err.message || err);
   });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -95,6 +95,76 @@ export default function HrmsDashboard() {
   // Reports sub-section state
   const [activeReportType, setActiveReportType] = useState('muster');
   const [reportsExpanded, setReportsExpanded] = useState(true);
+
+  // Notification state
+  const [hrmsNotifications, setHrmsNotifications] = useState([]);
+  const [hrmsUnreadCount, setHrmsUnreadCount] = useState(0);
+  const [showHrmsNotifDropdown, setShowHrmsNotifDropdown] = useState(false);
+  const hrmsNotifRef = useRef(null);
+
+  const fetchHrmsNotifications = useCallback(async () => {
+    try {
+      const headers = getHeaders();
+      const res = await axios.get(`${BACKEND_URL}/api/hrms/notifications`, { headers });
+      if (res.data?.success) {
+        setHrmsNotifications(res.data.data || []);
+        setHrmsUnreadCount(res.data.unreadCount || 0);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHrmsNotifications();
+    const interval = setInterval(fetchHrmsNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [fetchHrmsNotifications]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (hrmsNotifRef.current && !hrmsNotifRef.current.contains(e.target)) {
+        setShowHrmsNotifDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const markHrmsNotifRead = async (id, e) => {
+    e && e.stopPropagation();
+    try {
+      const headers = getHeaders();
+      await axios.put(`${BACKEND_URL}/api/hrms/notifications/${id}/read`, {}, { headers });
+      setHrmsNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: 1 } : n)));
+      setHrmsUnreadCount((c) => Math.max(0, c - 1));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const markAllHrmsNotifRead = async () => {
+    try {
+      const headers = getHeaders();
+      await axios.put(`${BACKEND_URL}/api/hrms/notifications/read-all`, {}, { headers });
+      setHrmsNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+      setHrmsUnreadCount(0);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleHrmsNotifClick = (notif) => {
+    markHrmsNotifRead(notif.id);
+    setShowHrmsNotifDropdown(false);
+    if (notif.type?.includes("FOLLOWUP") || notif.title?.toLowerCase().includes("follow-up")) {
+      navigate("/crm/followups");
+    } else if (notif.type?.includes("LEAD") || notif.title?.toLowerCase().includes("lead")) {
+      navigate("/crm/leads");
+    } else {
+      navigate("/crm/followups");
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -695,6 +765,121 @@ export default function HrmsDashboard() {
               <RefreshCw size={13} className={loading ? 'fa-spin' : ''} />
               <span>Refresh</span>
             </button>
+
+            {/* Work & Follow-up Reminders Bell */}
+            <div style={{ position: 'relative' }} ref={hrmsNotifRef}>
+              <button
+                onClick={() => setShowHrmsNotifDropdown(prev => !prev)}
+                className="hrms-outline-gold-btn"
+                style={{ padding: '6px 12px', fontSize: '12px', position: 'relative', display: 'flex', alignItems: 'center', gap: '6px' }}
+                title="Work Notifications & Reminders"
+              >
+                <Bell size={13} style={{ color: hrmsUnreadCount > 0 ? '#FFD700' : '#94a3b8' }} />
+                <span>Alerts</span>
+                {hrmsUnreadCount > 0 && (
+                  <span
+                    style={{
+                      background: '#EF4444',
+                      color: '#fff',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      borderRadius: '10px',
+                      padding: '1px 6px',
+                      marginLeft: '2px'
+                    }}
+                  >
+                    {hrmsUnreadCount > 9 ? '9+' : hrmsUnreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showHrmsNotifDropdown && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    right: 0,
+                    width: '340px',
+                    maxWidth: '90vw',
+                    background: '#0d111c',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255, 215, 0, 0.3)',
+                    boxShadow: '0 12px 36px rgba(0,0,0,0.6)',
+                    zIndex: 2500,
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      background: 'linear-gradient(135deg, #131a29 0%, #0d111c 100%)',
+                      borderBottom: '1px solid rgba(255, 215, 0, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Bell size={14} style={{ color: '#FFD700' }} />
+                      <span style={{ color: '#fff', fontWeight: 700, fontSize: '13px' }}>Reminders & Work</span>
+                      {hrmsUnreadCount > 0 && (
+                        <span style={{ background: '#EF4444', color: '#fff', fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '10px' }}>
+                          {hrmsUnreadCount}
+                        </span>
+                      )}
+                    </div>
+                    {hrmsUnreadCount > 0 && (
+                      <button
+                        onClick={markAllHrmsNotifRead}
+                        style={{ background: 'transparent', border: 'none', color: '#93c5fd', fontSize: '11px', cursor: 'pointer', padding: 0 }}
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                    {hrmsNotifications.length === 0 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '12.5px' }}>
+                        No new reminders or work notifications
+                      </div>
+                    ) : (
+                      hrmsNotifications.map(n => {
+                        const isReminder = n.type === 'CRM_FOLLOWUP_REMINDER' || n.is_reminder_due === 1 || n.title?.includes('⏰');
+                        return (
+                          <div
+                            key={n.id}
+                            onClick={() => handleHrmsNotifClick(n)}
+                            style={{
+                              padding: '10px 14px',
+                              borderBottom: '1px solid rgba(255,255,255,0.06)',
+                              background: n.is_read ? 'transparent' : (isReminder ? 'rgba(245, 158, 11, 0.08)' : 'rgba(37, 99, 235, 0.08)'),
+                              borderLeft: isReminder && !n.is_read ? '3px solid #f59e0b' : '3px solid transparent',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                              <span style={{ color: isReminder ? '#FCD34D' : '#93C5FD', fontWeight: n.is_read ? 500 : 700, fontSize: '12.5px' }}>
+                                {isReminder && <span style={{ background: '#F59E0B', color: '#000', fontSize: '9px', fontWeight: 800, padding: '1px 4px', borderRadius: '3px', marginRight: '5px' }}>REMINDER</span>}
+                                {n.title}
+                              </span>
+                              {!n.is_read && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#F59E0B' }} />}
+                            </div>
+                            <div style={{ color: '#cbd5e1', fontSize: '11.5px', marginTop: '3px', lineHeight: '1.3' }}>
+                              {n.message}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', fontSize: '10.5px', color: '#64748b' }}>
+                              <span>{n.created_at ? new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                              <span style={{ color: '#FFD700' }}>Open in CRM &rarr;</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Total Staff / Personal Employee Badge */}
             {isStaff ? (

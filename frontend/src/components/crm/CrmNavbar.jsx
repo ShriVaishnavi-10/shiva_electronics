@@ -32,13 +32,16 @@ const CrmNavbar = ({
   const userName = storedUser.name || storedUser.username || "Admin";
   const userBranches = storedUser.branches || [];
   const activeBranchId = getActiveBranchId();
+  const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
   const isSalesPerson =
-    storedUser.role_name?.toLowerCase().includes("sales") ||
-    storedUser.role_name?.toLowerCase().includes("employee") ||
-    storedUser.role_name?.toLowerCase().includes("staff") ||
-    storedUser.role_name?.toLowerCase().includes("cashier") ||
-    storedUser.is_sales_person ||
-    (!storedUser.permissions?.includes("dashboard.view") && storedUser.role_name?.toLowerCase() !== "super admin");
+    Number(storedUser.role_id) === 7 ||
+    roleLower.includes("sales") ||
+    roleLower.includes("seller") ||
+    roleLower.includes("employee") ||
+    roleLower.includes("staff") ||
+    storedUser.is_sales_person === true ||
+    Boolean(storedUser.sales_person_id) ||
+    (!storedUser.permissions?.includes("dashboard.view") && roleLower !== "super admin");
   
   const currentBranchName = React.useMemo(() => {
     if (!userBranches.length) return "Main Store";
@@ -65,7 +68,7 @@ const CrmNavbar = ({
 
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 30000);
+    const interval = setInterval(loadNotifications, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -321,8 +324,9 @@ const CrmNavbar = ({
                   </div>
                 ) : (
                   notifications.map((notif) => {
-                    const isWork = notif.type?.includes("LEAD") || notif.type?.includes("WORK");
-                    const isFollowup = notif.type?.includes("FOLLOWUP");
+                    const isReminder = notif.type === "CRM_FOLLOWUP_REMINDER" || notif.is_reminder_due === 1 || notif.title?.includes("⏰");
+                    const isWork = !isReminder && (notif.type?.includes("LEAD") || notif.type?.includes("WORK"));
+                    const isFollowup = !isReminder && notif.type?.includes("FOLLOWUP");
                     return (
                       <div
                         key={notif.id}
@@ -330,7 +334,8 @@ const CrmNavbar = ({
                         style={{
                           padding: "12px 16px",
                           borderBottom: "1px solid #f1f5f9",
-                          background: notif.is_read ? "#ffffff" : "#f8fafc",
+                          borderLeft: isReminder && !notif.is_read ? "3px solid #f59e0b" : "3px solid transparent",
+                          background: notif.is_read ? "#ffffff" : (isReminder ? "#fffdf5" : "#f8fafc"),
                           cursor: "pointer",
                           transition: "background 0.15s ease",
                           display: "flex",
@@ -338,15 +343,15 @@ const CrmNavbar = ({
                           alignItems: "flex-start"
                         }}
                         onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = notif.is_read ? "#ffffff" : "#f8fafc")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = notif.is_read ? "#ffffff" : (isReminder ? "#fffdf5" : "#f8fafc"))}
                       >
                         <div
                           style={{
                             width: "32px",
                             height: "32px",
                             borderRadius: "8px",
-                            background: isWork ? "#eff6ff" : isFollowup ? "#fef3c7" : "#ecfdf5",
-                            color: isWork ? "#2563eb" : isFollowup ? "#d97706" : "#059669",
+                            background: isReminder ? "#fef3c7" : isWork ? "#eff6ff" : isFollowup ? "#fef3c7" : "#ecfdf5",
+                            color: isReminder ? "#b45309" : isWork ? "#2563eb" : isFollowup ? "#d97706" : "#059669",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -354,7 +359,7 @@ const CrmNavbar = ({
                             marginTop: "2px"
                           }}
                         >
-                          {isWork ? <FaBriefcase size={14} /> : isFollowup ? <FaCalendarCheck size={14} /> : <FaUserTie size={14} />}
+                          {isReminder ? <FaClock size={14} /> : isWork ? <FaBriefcase size={14} /> : isFollowup ? <FaCalendarCheck size={14} /> : <FaUserTie size={14} />}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "6px" }}>
@@ -362,12 +367,27 @@ const CrmNavbar = ({
                               style={{
                                 fontSize: "13px",
                                 fontWeight: notif.is_read ? 600 : 700,
-                                color: notif.is_read ? "#334155" : "#0f172a",
+                                color: notif.is_read ? "#334155" : (isReminder ? "#92400e" : "#0f172a"),
                                 whiteSpace: "nowrap",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis"
                               }}
                             >
+                              {isReminder && (
+                                <span
+                                  style={{
+                                    backgroundColor: "#fef3c7",
+                                    color: "#92400e",
+                                    fontSize: "10px",
+                                    fontWeight: 700,
+                                    padding: "1px 5px",
+                                    borderRadius: "4px",
+                                    marginRight: "6px"
+                                  }}
+                                >
+                                  DUE
+                                </span>
+                              )}
                               {notif.title}
                             </div>
                             {!notif.is_read && (
@@ -376,7 +396,7 @@ const CrmNavbar = ({
                                   width: "7px",
                                   height: "7px",
                                   borderRadius: "50%",
-                                  background: "#2563eb",
+                                  background: isReminder ? "#f59e0b" : "#2563eb",
                                   flexShrink: 0
                                 }}
                               />

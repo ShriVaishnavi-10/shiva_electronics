@@ -46,6 +46,7 @@ export default function CrmPerformanceReport() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [search, setSearch] = useState("");
+  const [selectedSalesPerson, setSelectedSalesPerson] = useState("");
 
   // Data States
   const [loading, setLoading] = useState(true);
@@ -63,6 +64,19 @@ export default function CrmPerformanceReport() {
     overall_conversion_rate: "0.0"
   });
   const [salesPersons, setSalesPersons] = useState([]);
+  const [allSalesPersons, setAllSalesPersons] = useState([]);
+  const [dropdownEmployees, setDropdownEmployees] = useState([]);
+
+  // Fetch employees for dropdown list on mount
+  useEffect(() => {
+    api.get("/crm/leads/employees")
+      .then((res) => {
+        if (Array.isArray(res.data?.data) && res.data.data.length > 0) {
+          setDropdownEmployees(res.data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Drilldown Modal State
   const [selectedRep, setSelectedRep] = useState(null);
@@ -83,12 +97,16 @@ export default function CrmPerformanceReport() {
           basis,
           startDate: basis === "custom" ? startDate : undefined,
           endDate: basis === "custom" ? endDate : undefined,
-          search: search.trim() || undefined
+          search: search.trim() || undefined,
+          salesPerson: selectedSalesPerson || undefined
         }
       });
       if (res.data?.success) {
         setSummary(res.data.summary || {});
         setSalesPersons(Array.isArray(res.data.salesPersons) ? res.data.salesPersons : []);
+        if (Array.isArray(res.data.allSalesPersons) && res.data.allSalesPersons.length > 0) {
+          setAllSalesPersons(res.data.allSalesPersons);
+        }
       }
     } catch (err) {
       console.error("Failed to load sales performance report:", err);
@@ -105,7 +123,40 @@ export default function CrmPerformanceReport() {
 
   useEffect(() => {
     fetchReport();
-  }, [basis, startDate, endDate]);
+  }, [basis, startDate, endDate, selectedSalesPerson]);
+
+  // Combined Unique Sales Persons List for Dropdown
+  const combinedSalesPersons = useMemo(() => {
+    const map = new Map();
+    allSalesPersons.forEach((sp) => {
+      if (sp?.name) {
+        map.set(sp.name.toLowerCase().trim(), {
+          id: sp.id,
+          name: sp.name,
+          code: sp.sales_code
+        });
+      }
+    });
+    salesPersons.forEach((sp) => {
+      if (sp?.name && !map.has(sp.name.toLowerCase().trim())) {
+        map.set(sp.name.toLowerCase().trim(), {
+          id: sp.id,
+          name: sp.name,
+          code: sp.sales_code
+        });
+      }
+    });
+    dropdownEmployees.forEach((emp) => {
+      if (emp?.name && !map.has(emp.name.toLowerCase().trim())) {
+        map.set(emp.name.toLowerCase().trim(), {
+          id: emp.id,
+          name: emp.name,
+          code: emp.employee_code || "Sales"
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [allSalesPersons, salesPersons, dropdownEmployees]);
 
   // Handle Quick Date Selection
   const handleQuickPeriod = (p) => {
@@ -463,36 +514,102 @@ export default function CrmPerformanceReport() {
             </div>
           )}
 
-          {/* Search Box */}
+          {/* Search & Sales Person Dropdown Bar */}
           <div className={`col-12 ${basis === "custom" ? "col-md-3 col-xl-4" : "col-md-7 col-xl-8"}`}>
-            <label className="form-label text-muted mb-1 fw-bold" style={{ fontSize: "11.5px", textTransform: "uppercase" }}>
-              Search Sales Person
-            </label>
-            <div className="input-group input-group-sm">
-              <span className="input-group-text bg-light border-end-0" style={{ borderRadius: "8px 0 0 8px" }}>
-                <FaSearch size={12} className="text-muted" />
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <label className="form-label text-muted mb-0 fw-bold" style={{ fontSize: "11.5px", textTransform: "uppercase" }}>
+                Sales Person Dropdown & Search
+              </label>
+              {(selectedSalesPerson || search) && (
+                <button
+                  type="button"
+                  className="btn btn-link text-danger p-0 text-decoration-none fw-semibold"
+                  style={{ fontSize: "11px" }}
+                  onClick={() => {
+                    setSelectedSalesPerson("");
+                    setSearch("");
+                  }}
+                >
+                  <FaUndo size={10} className="me-1" /> Reset Filter
+                </button>
+              )}
+            </div>
+            <div
+              className="input-group input-group-sm"
+              style={{
+                borderRadius: "10px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.06)"
+              }}
+            >
+              {/* Sales Person Icon */}
+              <span
+                className="input-group-text bg-light border-end-0"
+                style={{ borderRadius: "10px 0 0 10px" }}
+                title="Filter by Sales Person"
+              >
+                <FaUserTie size={12} className={selectedSalesPerson ? "text-primary" : "text-muted"} />
               </span>
+
+              {/* Sales Person Dropdown Selection */}
+              <select
+                className="form-select border-start-0 border-end-0"
+                value={selectedSalesPerson}
+                onChange={(e) => setSelectedSalesPerson(e.target.value)}
+                style={{
+                  maxWidth: "230px",
+                  fontSize: "12.5px",
+                  fontWeight: "600",
+                  backgroundColor: selectedSalesPerson ? "#eff6ff" : "#f8fafc",
+                  color: selectedSalesPerson ? "#1d4ed8" : "#475569",
+                  cursor: "pointer"
+                }}
+                title="Select a specific Sales Person"
+              >
+                <option value="">👤 All Sales Persons ({combinedSalesPersons.length})</option>
+                {combinedSalesPersons.map((sp) => (
+                  <option key={sp.id || sp.name} value={sp.name}>
+                    {sp.name} {sp.code ? `(${sp.code})` : ""}
+                  </option>
+                ))}
+              </select>
+
+              {/* Search Icon */}
+              <span className="input-group-text bg-white border-start-0 border-end-0">
+                <FaSearch size={11} className="text-muted" />
+              </span>
+
+              {/* Free-text Search Input */}
               <input
                 type="text"
                 className="form-control border-start-0"
-                placeholder="Search by sales representative name, code, phone, email..."
+                placeholder="Search by code, phone, or email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && fetchReport()}
-                style={{ borderRadius: "0 8px 8px 0", fontSize: "12.5px" }}
+                style={{ fontSize: "12.5px" }}
               />
+
+              {/* Clear text button */}
               {search && (
                 <button
                   className="btn btn-outline-secondary"
-                  onClick={() => {
-                    setSearch("");
-                    fetchReport();
-                  }}
-                  title="Clear search"
+                  onClick={() => setSearch("")}
+                  title="Clear text search"
                 >
                   <FaTimes size={11} />
                 </button>
               )}
+
+              {/* Filter / Search action button */}
+              <button
+                className="btn btn-primary d-flex align-items-center gap-1"
+                onClick={fetchReport}
+                title="Apply Filter & Search"
+                style={{ borderRadius: "0 10px 10px 0", padding: "0 14px", fontWeight: "600" }}
+              >
+                <FaSearch size={11} />
+                <span className="d-none d-lg-inline" style={{ fontSize: "12px" }}>Filter</span>
+              </button>
             </div>
           </div>
         </div>

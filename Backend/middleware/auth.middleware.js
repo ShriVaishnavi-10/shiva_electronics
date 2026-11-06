@@ -5,10 +5,19 @@ const JWT_SECRET = process.env.JWT_SECRET || "anantham_nursery_secret_2026";
 
 function isUserAdmin(user) {
   if (!user) return false;
-  const roleName = String(user.role_name || "").toLowerCase().trim();
+  const roleName = String(user.role_name || user.role || "").toLowerCase().trim();
   const roleId = Number(user.role_id);
+  const isSales =
+    roleId === 7 ||
+    roleName.includes("sales") ||
+    roleName.includes("seller") ||
+    user.is_staff === true ||
+    user.is_sales_person === true ||
+    Boolean(user.sales_person_id);
+  if (isSales) return false;
+
   const userId = Number(user.id);
-  return roleName.includes("admin") || roleId === 1 || roleId === 5 || userId === 1;
+  return roleName.includes("admin") || roleName.includes("manager") || roleId === 1 || roleId === 5 || (userId === 1 && !user.employee_id);
 }
 
 function isNonUser(user) {

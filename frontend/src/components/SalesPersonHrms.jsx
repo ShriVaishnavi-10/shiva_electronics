@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   AlertCircle,
+  Briefcase,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
@@ -217,27 +218,79 @@ export default function SalesPersonHrms() {
       <aside className={`sales-hrms-sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
         <div className="sales-hrms-brand">
           <img src="/shiva_logo.png" alt="Shiva Electronics" />
-          {!sidebarCollapsed && <div><strong>SHIVA ELECTRONICS</strong><span>Sales Person HRMS</span></div>}
-          <button type="button" className="sales-hrms-collapse" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
+          {!sidebarCollapsed && (
+            <div style={{ minWidth: 0, overflow: "hidden" }}>
+              <strong style={{ fontSize: "13.5px", letterSpacing: "0.5px" }}>SHIVA ELECTRONICS</strong>
+              <span style={{ fontSize: "11px" }}>Sales Person HRMS</span>
+            </div>
+          )}
+          <button
+            type="button"
+            className="sales-hrms-collapse"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            style={{
+              background: "rgba(255, 215, 0, 0.08)",
+              borderColor: "rgba(255, 215, 0, 0.3)",
+              color: "#ffd700"
+            }}
+          >
             {sidebarCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
           </button>
         </div>
         {!sidebarCollapsed && <div className="sales-hrms-section-label">My Workspace</div>}
         <nav className="sales-hrms-nav" aria-label="Sales Person HRMS">
-          {navItems.map(({ id, label, Icon, badge }) => (
-            <button
-              type="button"
-              key={id}
-              onClick={() => navigate(`/hrms/${id}`)}
-              className={`sales-hrms-nav-item ${activeSection === id ? "active" : ""}`}
-              title={label}
-            >
-              <Icon size={18} />
-              {!sidebarCollapsed && <span>{label}</span>}
-              {!sidebarCollapsed && badge > 0 && <span className="sales-hrms-nav-badge">{badge}</span>}
-            </button>
-          ))}
+          {navItems.map(({ id, label, Icon, badge }) => {
+            const isActive = activeSection === id;
+            return (
+              <button
+                type="button"
+                key={id}
+                onClick={() => navigate(`/hrms/${id}`)}
+                className={`sales-hrms-nav-item ${isActive ? "active" : ""}`}
+                style={{
+                  background: isActive ? "linear-gradient(135deg, #ffd700 0%, #d49a00 100%)" : "transparent",
+                  color: isActive ? "#08090d" : "#cbd5e1",
+                  borderColor: isActive ? "#ffd700" : "transparent"
+                }}
+                title={label}
+              >
+                <Icon size={18} style={{ color: isActive ? "#08090d" : "#ffd700" }} />
+                {!sidebarCollapsed && <span>{label}</span>}
+                {!sidebarCollapsed && badge > 0 && <span className="sales-hrms-nav-badge">{badge}</span>}
+              </button>
+            );
+          })}
         </nav>
+
+        {/* Quick Link to CRM Workstation for Sales Person */}
+        <div style={{ padding: "0 12px 10px" }}>
+          <button
+            type="button"
+            onClick={() => navigate("/crm/leads")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              width: "100%",
+              padding: sidebarCollapsed ? "10px 0" : "10px 14px",
+              justifyContent: sidebarCollapsed ? "center" : "flex-start",
+              borderRadius: "11px",
+              border: "1px solid rgba(59, 130, 246, 0.35)",
+              background: "rgba(59, 130, 246, 0.12)",
+              color: "#93c5fd",
+              fontSize: "13.5px",
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "all 0.2s ease"
+            }}
+            title="Go to CRM Leads & Follow-ups"
+          >
+            <Briefcase size={17} style={{ color: "#60a5fa", flexShrink: 0 }} />
+            {!sidebarCollapsed && <span>CRM Leads Suite &rarr;</span>}
+          </button>
+        </div>
+
         <div className="sales-hrms-user">
           <div className="sales-hrms-user-avatar">{(profile?.name || "SP").slice(0, 1).toUpperCase()}</div>
           {!sidebarCollapsed && <div className="sales-hrms-user-name"><strong>{profile?.name || "Sales Person"}</strong><span>Sales Person</span></div>}
@@ -246,9 +299,14 @@ export default function SalesPersonHrms() {
           type="button"
           onClick={handleLogout}
           className="sales-hrms-sidebar-logout"
+          style={{
+            background: "rgba(239, 68, 68, 0.12)",
+            borderColor: "rgba(248, 113, 113, 0.35)",
+            color: "#fca5a5"
+          }}
           title="Logout"
         >
-          <LogOut size={17} />
+          <LogOut size={17} style={{ color: "#f87171" }} />
           {!sidebarCollapsed && <span>Logout</span>}
         </button>
       </aside>
@@ -276,11 +334,29 @@ export default function SalesPersonHrms() {
               onClick={handlePunch}
               disabled={punching || loading || punchComplete || profile?.status !== "Active"}
               className={`sales-hrms-punch-button ${todayPunch?.check_in && !punchComplete ? "checkout" : ""}`}
+              style={
+                todayPunch?.check_in && !punchComplete
+                  ? { background: "linear-gradient(135deg, #ffd700 0%, #d49a00 100%)", color: "#08090d", borderColor: "#ffd700" }
+                  : (punching || loading || punchComplete || profile?.status !== "Active")
+                  ? { background: "#1e293b", color: "#94a3b8", borderColor: "rgba(255,255,255,0.1)" }
+                  : { background: "#059669", color: "#ffffff", borderColor: "#10b981" }
+              }
             >
               <Clock3 size={16} />
               {punching ? "Recording..." : punchComplete ? "Attendance complete" : todayPunch?.check_in ? "Check out" : "Check in"}
             </button>
-            <button type="button" onClick={loadPortal} disabled={loading} className="sales-hrms-icon-button" title="Refresh">
+            <button
+              type="button"
+              onClick={loadPortal}
+              disabled={loading}
+              className="sales-hrms-icon-button"
+              style={{
+                background: "rgba(255, 215, 0, 0.08)",
+                borderColor: "rgba(255, 215, 0, 0.35)",
+                color: "#ffd700"
+              }}
+              title="Refresh"
+            >
               <RefreshCw size={17} className={loading ? "sales-hrms-spin" : ""} />
             </button>
           </div>

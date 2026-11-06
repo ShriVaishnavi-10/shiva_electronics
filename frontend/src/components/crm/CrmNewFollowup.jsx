@@ -9,7 +9,6 @@ import {
   FaUsers,
   FaMapMarkerAlt,
   FaClock,
-  FaPaperclip,
   FaBell,
   FaUserTie,
   FaCheckCircle,
@@ -50,8 +49,24 @@ const CrmNewFollowup = () => {
   const navigate = useNavigate();
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const roleLower = String(storedUser.role_name || storedUser.role || "").toLowerCase();
-  const isAdmin = roleLower.includes("admin") || roleLower.includes("super admin") || storedUser.id === 1;
-  const myName = storedUser.displayName || storedUser.name || storedUser.username || "Me";
+  const isSalesPerson =
+    Number(storedUser.role_id) === 7 ||
+    roleLower.includes("sales") ||
+    roleLower.includes("seller") ||
+    roleLower.includes("employee") ||
+    roleLower.includes("staff") ||
+    storedUser.is_sales_person === true ||
+    Boolean(storedUser.sales_person_id);
+
+  const isAdmin =
+    !isSalesPerson && (
+      roleLower.includes("admin") ||
+      roleLower.includes("super admin") ||
+      Number(storedUser.role_id) === 1 ||
+      Number(storedUser.role_id) === 5 ||
+      (Number(storedUser.id) === 1 && !storedUser.employee_id)
+    );
+  const myName = storedUser.displayName || storedUser.name || storedUser.full_name || storedUser.username || "Me";
 
   const [formData, setFormData] = useState(() => ({
     ...initialFormState,
@@ -216,18 +231,6 @@ const CrmNewFollowup = () => {
           mobile_number: selected.mobile_no || selected.contact_no || selected.phone || ""
         }));
       }
-    }
-  };
-
-  // Handle file attachment selection
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFormData((prev) => ({
-        ...prev,
-        attachment_name: file.name
-      }));
-      toast.info(`Attached: ${file.name}`);
     }
   };
 
@@ -708,49 +711,6 @@ const CrmNewFollowup = () => {
                 </select>
               </div>
 
-              {/* Attachments */}
-              <div className="col-12 col-md-6">
-                <label style={labelStyle}>Attachments</label>
-                <div className="d-flex align-items-center gap-2">
-                  <label
-                    className="btn btn-light border d-inline-flex align-items-center gap-2 mb-0"
-                    style={{
-                      borderRadius: "24px",
-                      padding: "9px 18px",
-                      fontSize: "13px",
-                      cursor: "pointer",
-                      fontWeight: "500"
-                    }}
-                  >
-                    <FaPaperclip color="#64748b" />
-                    <span>Choose File</span>
-                    <input
-                      type="file"
-                      className="d-none"
-                      onChange={handleFileChange}
-                    />
-                  </label>
-                  {formData.attachment_name ? (
-                    <span
-                      className="badge bg-light text-dark border px-2 py-1 d-inline-flex align-items-center gap-1"
-                      style={{ fontSize: "12px", borderRadius: "8px" }}
-                    >
-                      {formData.attachment_name}
-                      <FaTimes
-                        style={{ cursor: "pointer" }}
-                        onClick={() =>
-                          setFormData((p) => ({ ...p, attachment_name: "" }))
-                        }
-                      />
-                    </span>
-                  ) : (
-                    <span className="text-muted" style={{ fontSize: "12.5px" }}>
-                      No file selected
-                    </span>
-                  )}
-                </div>
-              </div>
-
               {/* Next Action */}
               <div className="col-12">
                 <label style={labelStyle}>Next Action</label>
@@ -906,10 +866,12 @@ const CrmNewFollowup = () => {
                     cursor: formData.reminder_enabled ? "pointer" : "not-allowed"
                   }}
                 >
+                  <option value="At time of follow-up">At time of follow-up</option>
                   <option value="5 minutes">5 minutes</option>
                   <option value="10 minutes">10 minutes</option>
                   <option value="15 minutes">15 minutes</option>
                   <option value="30 minutes">30 minutes</option>
+                  <option value="1 hour">1 hour</option>
                   <option value="1 day">1 day</option>
                 </select>
               </div>

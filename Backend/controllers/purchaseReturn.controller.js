@@ -90,8 +90,18 @@ exports.getPurchaseForReturn = async (req, res) => {
           FROM purchase_return_items pri
           JOIN purchase_returns ret ON ret.id = pri.purchase_return_id
           WHERE pri.purchase_item_id = pi.id
-        ), 0) AS already_returned_qty
+        ), 0) AS already_returned_qty,
+        COALESCE(
+          (SELECT CAST(st.quantity AS DECIMAL(12,3)) 
+           FROM stocks st 
+           WHERE st.product_id = pi.product_id 
+           ORDER BY (st.branch_id = p.branch_id) DESC, st.id DESC 
+           LIMIT 1),
+          CAST(COALESCE(pr.quantity, 0) AS DECIMAL(12,3)),
+          0
+        ) AS current_stock
       FROM purchase_items pi
+      JOIN purchases p ON p.id = pi.purchase_id
       LEFT JOIN products pr ON pr.id = pi.product_id
       WHERE pi.purchase_id = ?
       ORDER BY pi.id ASC
@@ -103,11 +113,19 @@ exports.getPurchaseForReturn = async (req, res) => {
       const items = (itemRows || []).map((row) => {
         const pQty = Number(row.purchased_qty) || 0;
         const retQty = Number(row.already_returned_qty) || 0;
-        const availQty = Math.max(0, pQty - retQty);
+        const currentStock = Math.max(0, Number(row.current_stock) || 0);
+
+        // Remaining purchased quantity not yet returned
+        const remainingPurchased = Math.max(0, pQty - retQty);
+
+        // Returnable quantity cannot exceed remaining purchased qty AND cannot exceed available stock!
+        const availQty = Math.max(0, Math.min(remainingPurchased, currentStock));
+
         return {
           ...row,
           purchased_qty: pQty,
           already_returned_qty: retQty,
+          current_stock: currentStock,
           available_return_qty: availQty,
           return_qty: 0,
         };
@@ -225,45 +243,98 @@ exports.createPurchaseReturn = async (req, res) => {
               );
             }
 
-            // 2. Insert return items and deduct stock!
-            const insertItemSql = `
-              INSERT INTO purchase_return_items 
-                (purchase_return_id, purchase_item_id, product_id, product_name, hsncode, return_qty, unit_price, tax_group_id, total_amount)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
+            // 2. Strict validation: Ensure return quantities do not exceed available stock
+            const stockCheckPromises = validItems.map((item) => {
+              return new Promise((resolve, reject) => {
+                const q = Number(item.return_qty) || 0;
+                const pid = item.product_id;
+                const checkSql = `
+                  SELECT COALESCE(
+                    (SELECT CAST(st.quantity AS DECIMAL(12,3)) FROM stocks st WHERE st.product_id = ? ORDER BY st.id DESC LIMIT 1),
+                    (SELECT CAST(COALESCE(pr.quantity, 0) AS DECIMAL(12,3)) FROM products pr WHERE pr.id = ?),
+                    0
+                  ) AS current_stock
+                `;
+                conn.query(checkSql, [pid, pid], (err, sRows) => {
+                  if (err) return reject(err);
+                  const currentStock = Math.max(0, Number(sRows && sRows[0] ? sRows[0].current_stock : 0));
+                  if (q > currentStock) {
+                    return reject(
+                      new Error(
+                        `Cannot return ${q} units of "${item.product_name || 'Item'}". Only ${currentStock} units are currently available in stock.`
+                      )
+                    );
+                  }
+                  resolve();
+                });
+              });
+            });
 
-            let itemsCompleted = 0;
-            const totalItemsCount = validItems.length;
+            Promise.all(stockCheckPromises)
+              .then(() => {
+                // 3. Insert return items and deduct stock!
+                const insertItemSql = `
+                  INSERT INTO purchase_return_items 
+                    (purchase_return_id, purchase_item_id, product_id, product_name, hsncode, return_qty, unit_price, tax_group_id, total_amount)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `;
 
-            validItems.forEach((item) => {
-              const q = Number(item.return_qty) || 0;
-              const p = Number(item.unit_price) || 0;
-              const lineTotal = Number(item.total_amount) || q * p;
+                let itemsCompleted = 0;
+                const totalItemsCount = validItems.length;
 
-              conn.query(
-                insertItemSql,
-                [
-                  returnId,
-                  item.purchase_item_id || null,
-                  item.product_id,
-                  item.product_name || null,
-                  item.hsncode || null,
-                  q,
-                  p,
-                  item.tax_group_id || null,
-                  lineTotal,
-                ],
-                (itemErr) => {
-                  if (itemErr) return rollback(itemErr);
+                validItems.forEach((item) => {
+                  const q = Number(item.return_qty) || 0;
+                  const p = Number(item.unit_price) || 0;
+                  const lineTotal = Number(item.total_amount) || q * p;
 
-                  // Deduct from stocks table
-                  if (item.product_id && q > 0) {
-                    conn.query(
-                      "UPDATE stocks SET quantity = GREATEST(0, CAST(quantity AS DECIMAL(12,3)) - ?) WHERE product_id = ?",
-                      [q, item.product_id],
-                      (stockErr) => {
-                        if (stockErr) return rollback(stockErr);
+                  conn.query(
+                    insertItemSql,
+                    [
+                      returnId,
+                      item.purchase_item_id || null,
+                      item.product_id,
+                      item.product_name || null,
+                      item.hsncode || null,
+                      q,
+                      p,
+                      item.tax_group_id || null,
+                      lineTotal,
+                    ],
+                    (itemErr) => {
+                      if (itemErr) return rollback(itemErr);
 
+                      // Deduct from stocks and products table
+                      if (item.product_id && q > 0) {
+                        conn.query(
+                          "UPDATE stocks SET quantity = GREATEST(0, CAST(quantity AS DECIMAL(12,3)) - ?) WHERE product_id = ?",
+                          [q, item.product_id],
+                          (stockErr) => {
+                            if (stockErr) return rollback(stockErr);
+
+                            conn.query(
+                              "UPDATE products SET quantity = GREATEST(0, CAST(COALESCE(quantity, 0) AS DECIMAL(12,3)) - ?) WHERE id = ?",
+                              [q, item.product_id],
+                              (pErr) => {
+                                if (pErr) return rollback(pErr);
+
+                                itemsCompleted++;
+                                if (itemsCompleted === totalItemsCount) {
+                                  conn.commit((commitErr) => {
+                                    if (commitErr) return rollback(commitErr);
+                                    conn.release();
+                                    res.json({
+                                      message: "Purchase return created successfully",
+                                      id: returnId,
+                                      return_no: returnNo,
+                                      refund_amount: grandTotal,
+                                    });
+                                  });
+                                }
+                              }
+                            );
+                          }
+                        );
+                      } else {
                         itemsCompleted++;
                         if (itemsCompleted === totalItemsCount) {
                           conn.commit((commitErr) => {
@@ -278,25 +349,11 @@ exports.createPurchaseReturn = async (req, res) => {
                           });
                         }
                       }
-                    );
-                  } else {
-                    itemsCompleted++;
-                    if (itemsCompleted === totalItemsCount) {
-                      conn.commit((commitErr) => {
-                        if (commitErr) return rollback(commitErr);
-                        conn.release();
-                        res.json({
-                          message: "Purchase return created successfully",
-                          id: returnId,
-                          return_no: returnNo,
-                          refund_amount: grandTotal,
-                        });
-                      });
                     }
-                  }
-                }
-              );
-            });
+                  );
+                });
+              })
+              .catch((valErr) => rollback(valErr));
           }
         );
       });
@@ -506,7 +563,14 @@ exports.deletePurchaseReturn = (req, res) => {
                     conn.query(
                       "UPDATE stocks SET quantity = CAST(quantity AS DECIMAL(12,3)) + ? WHERE product_id = ?",
                       [Number(it.return_qty), it.product_id],
-                      (stkErr) => (stkErr ? reject(stkErr) : resolve())
+                      (stkErr) => {
+                        if (stkErr) return reject(stkErr);
+                        conn.query(
+                          "UPDATE products SET quantity = CAST(COALESCE(quantity, 0) AS DECIMAL(12,3)) + ? WHERE id = ?",
+                          [Number(it.return_qty), it.product_id],
+                          (pErr) => (pErr ? reject(pErr) : resolve())
+                        );
+                      }
                     );
                   });
                 });

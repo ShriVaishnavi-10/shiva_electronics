@@ -72,4 +72,11 @@ router.put("/recruitment/candidates/:id/status", authorize("hrms.settings.edit")
 // 11. Reports & Exports
 router.get("/reports", authorize("hrms.view"), hrmsCtrl.getHrmsReport);
 
+// 12. Notifications (Available to all staff & salespersons)
+const notifCtrl = require("../controllers/notification.controller");
+router.get("/notifications", notifCtrl.getUserNotifications);
+router.put("/notifications/read-all", notifCtrl.markAllNotificationsAsRead);
+router.put("/notifications/:id/read", notifCtrl.markNotificationAsRead);
+router.delete("/notifications/:id", notifCtrl.deleteNotification);
+
 module.exports = router;
